@@ -7,11 +7,13 @@ sqlalchemy
 pymysql
 cryptography
 openai
-openai-whisper
+openai-whisper==20250625
 funasr
 modelscope
 torch==2.3.1
 torchaudio==2.3.1
+transformers==4.51.3
+numpy<2
 onnxruntime==1.18.0
 HyperPyYAML==1.2.3
 conformer==0.3.2
