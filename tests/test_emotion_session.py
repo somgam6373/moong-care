@@ -52,3 +52,26 @@ def test_clear_session_removes_state():
     add_user_turn("s1", "t1", {"happy": 1.0})
     clear_session("s1")
     assert get_session("s1") is None
+
+
+def test_add_assistant_turn_lazy_creates_session():
+    # First call is add_assistant_turn on a brand-new session id
+    add_assistant_turn("new-id", "안녕!")
+
+    session = get_session("new-id")
+    assert session.turn_count == 0
+    assert len(session.turns) == 1
+    assert session.turns[0].role == "assistant"
+
+
+def test_compute_average_raises_keyerror_with_only_assistant_turns():
+    # Session exists but turn_count is 0 (only assistant turns, no user turns)
+    add_assistant_turn("new-id", "안녕!")
+
+    with pytest.raises(KeyError):
+        compute_average("new-id")
+
+
+def test_clear_session_idempotent_on_never_created_session():
+    # Calling clear_session on a session id that never existed should not raise
+    clear_session("never-existed")
