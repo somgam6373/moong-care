@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+CosyVoice/
+pretrained_models/
+temp/*
+!temp/.gitkeep
+*.wav
+.idea/
+*.iml
