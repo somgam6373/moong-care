@@ -1,6 +1,6 @@
 import asyncio
 
-from services import voice_service, stt_service, ser_service
+from services import voice_service, stt_service, ser_service, pitch_service
 
 
 class _FakeAppState:
@@ -11,11 +11,16 @@ class _FakeAppState:
         self.ser_lock = asyncio.Lock()
 
 
-def test_analyze_voice_runs_stt_and_ser_and_combines_results(monkeypatch):
+def test_analyze_voice_runs_stt_ser_pitch_and_combines_results(monkeypatch):
     monkeypatch.setattr(stt_service, "transcribe", lambda model, path: "오늘 발표가 잘 됐어요")
     monkeypatch.setattr(ser_service, "analyze_emotion", lambda model, path: {"happy": 0.7, "neutral": 0.3})
+    monkeypatch.setattr(pitch_service, "analyze_pitch", lambda path: (187.3, 24.1))
 
-    transcript, emotions = asyncio.run(voice_service.analyze_voice(_FakeAppState(), "dummy.wav"))
+    transcript, emotions, pitch_mean, pitch_std = asyncio.run(
+        voice_service.analyze_voice(_FakeAppState(), "dummy.wav")
+    )
 
     assert transcript == "오늘 발표가 잘 됐어요"
     assert emotions == {"happy": 0.7, "neutral": 0.3}
+    assert pitch_mean == 187.3
+    assert pitch_std == 24.1
