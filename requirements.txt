@@ -6,7 +6,7 @@ python-dotenv
 sqlalchemy
 pymysql
 cryptography
-anthropic
+openai
 openai-whisper==20250625
 funasr
 modelscope

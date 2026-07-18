@@ -1,5 +1,5 @@
 from services.emotion_session import TurnRecord
-from services.anthropic_client import get_client
+from services.openai_client import get_client
 from config import settings
 
 DIARY_SYSTEM_PROMPT = (
@@ -26,10 +26,11 @@ def generate_diary(history: list[TurnRecord], average_emotions: dict[str, float]
         f"오늘의 대표 감정: {dominant}\n"
         f"감정 평균 점수: {average_emotions}"
     )
-    response = client.messages.create(
-        model=settings.ANTHROPIC_MODEL,
-        max_tokens=1024,
-        system=DIARY_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
+    response = client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": DIARY_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
     )
-    return next(block.text for block in response.content if block.type == "text")
+    return response.choices[0].message.content

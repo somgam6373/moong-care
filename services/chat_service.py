@@ -1,5 +1,5 @@
 from services.emotion_session import TurnRecord
-from services.anthropic_client import get_client
+from services.openai_client import get_client
 from config import settings
 
 MOONG_SYSTEM_PROMPT = (
@@ -13,7 +13,7 @@ MOONG_SYSTEM_PROMPT = (
 def build_messages(
     history: list[TurnRecord], transcript: str, emotions: dict[str, float]
 ) -> list[dict]:
-    messages = []
+    messages = [{"role": "system", "content": MOONG_SYSTEM_PROMPT}]
     for turn in history:
         role = "user" if turn.role == "user" else "assistant"
         messages.append({"role": role, "content": turn.text})
@@ -28,10 +28,5 @@ def build_messages(
 def get_reply(history: list[TurnRecord], transcript: str, emotions: dict[str, float]) -> str:
     client = get_client()
     messages = build_messages(history, transcript, emotions)
-    response = client.messages.create(
-        model=settings.ANTHROPIC_MODEL,
-        max_tokens=1024,
-        system=MOONG_SYSTEM_PROMPT,
-        messages=messages,
-    )
-    return next(block.text for block in response.content if block.type == "text")
+    response = client.chat.completions.create(model=settings.OPENAI_MODEL, messages=messages)
+    return response.choices[0].message.content

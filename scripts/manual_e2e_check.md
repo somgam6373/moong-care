@@ -1,7 +1,7 @@
 # 수동 End-to-End 확인
 
 전제: 서버가 `uvicorn main:app --port 8000`으로 떠 있고, `.env`에 유효한
-`ANTHROPIC_API_KEY`와 로컬 MySQL 접속 정보가 채워져 있음. `sample.webm`은 직접
+`OPENAI_API_KEY`와 로컬 MySQL 접속 정보가 채워져 있음. `sample.webm`은 직접
 녹음한 3~5초 분량의 한국어 발화 파일로 교체할 것.
 
 1. session_id 생성 (PowerShell):
