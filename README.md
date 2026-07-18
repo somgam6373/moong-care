@@ -18,8 +18,8 @@ MySQL에 최종 저장한다. 라우터는 얇게 — 입력 검증하고 servic
 ```
 클라이언트
   └─ POST /api/v1/voice/analyze (session_id, webm 오디오)
-       webm→wav(ffmpeg) → [STT ‖ SER 병렬 실행] → 세션 메모리에 turn 추가
-       응답: { transcript, emotions }
+       webm→wav(ffmpeg) → [STT ‖ SER ‖ pitch 분석 병렬 실행] → 세션 메모리에 turn 추가
+       응답: { transcript, emotions, pitch_mean, pitch_std }
   └─ POST /api/v1/chat/reply (session_id, transcript, emotions)
        세션 히스토리 로드 → OpenAI 호출(감정 반영 프롬프트) → assistant turn 기록
        응답: { reply_text }
@@ -83,6 +83,19 @@ emotion2vec raw 출력은 `labels: ["生气/angry", "开心/happy", ...]`,
 그래서 `services/ser_service.py`의 `parse_emotion2vec_output`이
 `"生气/angry"`에서 영어 부분만 뽑아 고정된 영어 키 dict로 변환한다.
 
+**피치(pitch) 분석을 추가한 이유**
+emotion2vec 감정 점수만으로는 "이 판단을 얼마나 믿을 수 있나"를 알기 어렵다.
+`voice/analyze` 응답에 `pitch_mean`/`pitch_std`(발화 구간 F0 평균/표준편차,
+Hz 단위)를 추가해서 사람이 참고할 수 있는 보조 지표로 노출한다 — 서버 판단
+로직(감정 선택, 챗 응답, 일기 생성)에는 관여하지 않는 순수 부가 정보다.
+`pitch_std`는 정식 jitter/shimmer 지표가 아니라 발화 전체의 억양 기복을
+"떨림" 근사치로 쓰는 것뿐이다. 계산은 이미 설치돼 있던 `pyworld`(CosyVoice가
+내부적으로 씀)로 하기 때문에 새 의존성이 없다. `services/pitch_service.py`
+가 담당하고, GPU를 안 쓰는 순수 CPU 연산이라 STT/SER와 함께
+`asyncio.gather`로 병렬 실행된다. (실측 사례: transcript가 `"."`처럼
+STT가 못 알아들은 경우에도 `pitch_mean`이 정상 범위로 나오면 "소리는
+났는데 인식만 실패한 것"과 "진짜 무음"을 구분하는 데 도움이 된다.)
+
 **세션을 DB가 아니라 메모리에 두는 이유**
 데모/발표용 로컬 단일 프로세스 환경이라 서버 재시작 시 세션이 날아가도
 문제없다는 전제. 매 턴마다 DB를 왕복하는 대신 메모리에 두고, 대화가
@@ -124,7 +137,8 @@ moongcare-server/
 ├── services/
 │   ├── stt_service.py         # SenseVoice 추론 + 태그 제거
 │   ├── ser_service.py         # emotion2vec 추론 + dict 변환
-│   ├── voice_service.py       # STT/SER 병렬 실행 (asyncio.gather)
+│   ├── voice_service.py       # STT/SER/pitch 병렬 실행 (asyncio.gather)
+│   ├── pitch_service.py       # pyworld로 피치(F0) 평균/표준편차 계산
 │   ├── tts_service.py         # CosyVoice2 zero-shot 추론
 │   ├── openai_client.py       # OpenAI 클라이언트 싱글톤
 │   ├── chat_service.py        # 대화 응답 생성 (+ 무음 가드)
@@ -294,6 +308,26 @@ import하는 구조라(예: `routers/*.py`가 `services/*.py`를, 그게 다시
 각 태스크가 끝날 때마다 커밋을 나눴기 때문에 git 로그를 보면
 Task 1~20이 거의 그대로 커밋 단위로 남아있다 (`feat: add SenseVoice
 STT wrapper`, `feat: add voice/analyze router` 등).
+
+### 3단계 — 기능 추가 (피치 분석, 같은 세션 안에서 풀 사이클로 진행)
+
+Task 1~20이 끝난 뒤 "감정 신뢰도 보조지표로 피치/떨림 수치를 추가하고
+싶다"는 요청이 들어왔을 때는, 태스크 이어서 하기가 아니라 **완전히
+새로운 기능이라 브레인스토밍부터 다시 시작**했다:
+
+1. **superpowers:brainstorming** — 한 번에 하나씩 질문하며 범위를 좁힘
+   ("떨림 수치를 API에 그냥 노출만 할 건지, 서버 판단 로직에 반영할
+   건지" 등). 합의된 설계를 `docs/superpowers/specs/2026-07-19-pitch-analysis-design.md`에 문서화.
+2. **superpowers:writing-plans** — 위 스펙을 5개 태스크(TDD 단계 포함)로
+   쪼갠 계획을 `docs/superpowers/plans/2026-07-19-pitch-analysis-implementation.md`에 작성. 이때 계획에 적을 기대값(사인파 220Hz 입력 시 피치 평균이
+   실제로 얼마나 나오는지)을 미리 스크립트로 돌려서 검증한 뒤 계획에
+   반영함 — 계획 문서에 근거 없는 숫자를 적지 않기 위함.
+3. **superpowers:executing-plans** — 계획대로 태스크 5개를 순서대로
+   TDD로 구현.
+
+이 사이클(브레인스토밍 → 계획 → 실행)이 새 기능을 추가할 때의 기본
+패턴이고, Task 1~20처럼 "이미 계획이 있는 작업 이어하기"와는 시작점이
+다르다는 걸 구분해두면 됨.
 
 ### 그 외 사용한 스킬
 
