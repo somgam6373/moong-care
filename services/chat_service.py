@@ -1,6 +1,11 @@
+import string
+
 from services.emotion_session import TurnRecord
 from services.openai_client import get_client
 from config import settings
+
+MIN_TRANSCRIPT_LENGTH = 2
+FALLBACK_REPLY = "음... 잘 못 들었어. 다시 한 번 말해줄래?"
 
 MOONG_SYSTEM_PROMPT = (
     "너는 '뭉이'라는 이름의 따뜻하고 다정한 감정 케어 캐릭터야. "
@@ -26,6 +31,9 @@ def build_messages(
 
 
 def get_reply(history: list[TurnRecord], transcript: str, emotions: dict[str, float]) -> str:
+    if len(transcript.strip().strip(string.punctuation)) < MIN_TRANSCRIPT_LENGTH:
+        return FALLBACK_REPLY
+
     client = get_client()
     messages = build_messages(history, transcript, emotions)
     response = client.chat.completions.create(model=settings.OPENAI_MODEL, messages=messages)

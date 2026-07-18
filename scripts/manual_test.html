@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>MoongCare 수동 테스트</title>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; line-height: 1.5; }
+  h1 { font-size: 18px; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+  section h2 { font-size: 14px; margin: 0 0 8px; color: #555; }
+  button { padding: 8px 14px; margin-right: 8px; cursor: pointer; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .out { background: #f5f5f5; padding: 8px; margin-top: 8px; white-space: pre-wrap; word-break: break-all; font-size: 12.5px; border-radius: 4px; }
+  input[type="text"] { width: 100%; padding: 6px; box-sizing: border-box; }
+  .rec { color: #c4453d; font-weight: bold; }
+  audio { width: 100%; margin-top: 8px; }
+</style>
+
+<h1>MoongCare 수동 테스트</h1>
+
+<section>
+  <h2>서버 주소 / session_id</h2>
+  <input id="baseUrl" type="text" value="http://localhost:8000">
+  <div class="out" id="sessionOut"></div>
+</section>
+
+<section>
+  <h2>1. 음성 분석 (voice/analyze)</h2>
+  <button id="recBtn">녹음 시작</button>
+  <span id="recStatus"></span>
+  <div class="out" id="analyzeOut">아직 없음</div>
+</section>
+
+<section>
+  <h2>2. 대화 응답 (chat/reply)</h2>
+  <button id="chatBtn" disabled>답장 받기</button>
+  <div class="out" id="chatOut">아직 없음</div>
+</section>
+
+<section>
+  <h2>3. TTS</h2>
+  <button id="ttsBtn" disabled>음성으로 듣기</button>
+  <audio id="ttsAudio" controls></audio>
+</section>
+
+<section>
+  <h2>4. 세션 종료 (session/end)</h2>
+  <button id="endBtn" disabled>세션 종료</button>
+  <div class="out" id="endOut">아직 없음</div>
+</section>
+
+<section>
+  <h2>5. 일기 생성 (diary/generate)</h2>
+  <button id="diaryBtn" disabled>일기 생성</button>
+  <div class="out" id="diaryOut">아직 없음</div>
+</section>
+
+<script>
+(function () {
+  const sessionId = crypto.randomUUID();
+  document.getElementById("sessionOut").textContent = "session_id: " + sessionId;
+
+  const baseUrlInput = document.getElementById("baseUrl");
+  const base = () => baseUrlInput.value.replace(/\/$/, "");
+
+  let lastTranscript = "";
+  let lastEmotions = null;
+  let lastReply = "";
+  let mediaRecorder, chunks = [], stream;
+
+  const recBtn = document.getElementById("recBtn");
+  const recStatus = document.getElementById("recStatus");
+  const analyzeOut = document.getElementById("analyzeOut");
+  const chatBtn = document.getElementById("chatBtn");
+  const chatOut = document.getElementById("chatOut");
+  const ttsBtn = document.getElementById("ttsBtn");
+  const ttsAudio = document.getElementById("ttsAudio");
+  const endBtn = document.getElementById("endBtn");
+  const endOut = document.getElementById("endOut");
+  const diaryBtn = document.getElementById("diaryBtn");
+  const diaryOut = document.getElementById("diaryOut");
+
+  recBtn.addEventListener("click", async () => {
+    if (recBtn.dataset.state === "recording") {
+      mediaRecorder.stop();
+      stream.getTracks().forEach((t) => t.stop());
+      recBtn.dataset.state = "idle";
+      recBtn.textContent = "녹음 시작";
+      recStatus.textContent = "";
+      return;
+    }
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    mediaRecorder.onstop = analyzeVoice;
+    mediaRecorder.start();
+    recBtn.dataset.state = "recording";
+    recBtn.textContent = "녹음 정지";
+    recStatus.innerHTML = '<span class="rec">● 녹음 중</span>';
+  });
+
+  async function analyzeVoice() {
+    analyzeOut.textContent = "분석 중...";
+    const blob = new Blob(chunks, { type: "audio/webm" });
+    const form = new FormData();
+    form.append("session_id", sessionId);
+    form.append("audio", blob, "recording.webm");
+
+    const res = await fetch(base() + "/api/v1/voice/analyze", { method: "POST", body: form });
+    const data = await res.json();
+    analyzeOut.textContent = JSON.stringify(data, null, 2);
+
+    if (res.ok) {
+      lastTranscript = data.transcript;
+      lastEmotions = data.emotions;
+      chatBtn.disabled = false;
+      endBtn.disabled = false;
+    }
+  }
+
+  chatBtn.addEventListener("click", async () => {
+    chatOut.textContent = "요청 중...";
+    const res = await fetch(base() + "/api/v1/chat/reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, transcript: lastTranscript, emotions: lastEmotions }),
+    });
+    const data = await res.json();
+    chatOut.textContent = JSON.stringify(data, null, 2);
+    if (res.ok) {
+      lastReply = data.reply_text;
+      ttsBtn.disabled = false;
+    }
+  });
+
+  ttsBtn.addEventListener("click", async () => {
+    const res = await fetch(base() + "/api/v1/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: lastReply }),
+    });
+    const blob = await res.blob();
+    ttsAudio.src = URL.createObjectURL(blob);
+    ttsAudio.play();
+  });
+
+  endBtn.addEventListener("click", async () => {
+    endOut.textContent = "요청 중...";
+    const res = await fetch(base() + "/api/v1/session/end", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await res.json();
+    endOut.textContent = res.status + "\n" + JSON.stringify(data, null, 2);
+    diaryBtn.disabled = false;
+  });
+
+  diaryBtn.addEventListener("click", async () => {
+    diaryOut.textContent = "요청 중... (몇 초 걸릴 수 있음)";
+    const res = await fetch(base() + "/api/v1/diary/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await res.json();
+    diaryOut.textContent = res.status + "\n" + JSON.stringify(data, null, 2);
+  });
+})();
+</script>

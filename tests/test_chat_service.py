@@ -39,3 +39,23 @@ def test_get_reply_calls_openai_client_and_returns_text(monkeypatch):
 
     assert reply == "힘든 하루였겠다, 오늘도 애썼어."
     assert fake_client.chat.completions.last_messages[-1]["content"].endswith("오늘 힘들었어")
+
+
+def test_get_reply_returns_fallback_for_near_empty_transcript(monkeypatch):
+    def _boom():
+        raise AssertionError("get_client should not be called for near-empty transcript")
+
+    monkeypatch.setattr(chat_service, "get_client", _boom)
+
+    for transcript in ["", ".", "I.", "   ", "!?"]:
+        reply = chat_service.get_reply([], transcript, {"neutral": 1.0})
+        assert reply == chat_service.FALLBACK_REPLY
+
+
+def test_get_reply_calls_client_for_short_but_real_transcript(monkeypatch):
+    fake_client = _FakeClient("그랬구나!")
+    monkeypatch.setattr(chat_service, "get_client", lambda: fake_client)
+
+    reply = chat_service.get_reply([], "안녕", {"happy": 1.0})
+
+    assert reply == "그랬구나!"
