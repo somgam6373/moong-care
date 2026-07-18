@@ -6,8 +6,18 @@ from models.diary import DiaryGenerateRequest, DiaryGenerateResponse
 
 
 def test_voice_analyze_response_roundtrip():
-    resp = VoiceAnalyzeResponse(transcript="안녕", emotions={"happy": 0.5, "neutral": 0.5})
-    assert resp.model_dump() == {"transcript": "안녕", "emotions": {"happy": 0.5, "neutral": 0.5}}
+    resp = VoiceAnalyzeResponse(
+        transcript="안녕",
+        emotions={"happy": 0.5, "neutral": 0.5},
+        pitch_mean=187.3,
+        pitch_std=24.1,
+    )
+    assert resp.model_dump() == {
+        "transcript": "안녕",
+        "emotions": {"happy": 0.5, "neutral": 0.5},
+        "pitch_mean": 187.3,
+        "pitch_std": 24.1,
+    }
 
 
 def test_chat_reply_models():
