@@ -259,6 +259,66 @@ curl 기반 체크리스트는 `scripts/manual_e2e_check.md` 참고.
 
 ---
 
+## 이 프로젝트를 만든 방식 (Claude Code / Superpowers)
+
+이 서버는 Claude Code + `superpowers` 플러그인 스킬 세트로 개발했다.
+과정을 그대로 남겨두면 나중에 비슷한 작업 할 때 참고가 될 것 같아 정리함.
+
+### 1단계 — 설계 (별도 세션)
+
+코드를 짜기 전에 **superpowers:brainstorming** → **superpowers:writing-plans**
+스킬로 먼저 설계부터 했다. 결과물이 저장소에 그대로 남아있음:
+
+- `docs/superpowers/specs/2026-07-18-moongcare-server-design.md`
+  — 요구사항을 정리한 설계 스펙 (API 응답 형태, 세션 상태 관리 방식,
+  동시성 처리, 에러 처리 원칙 등을 코드 짜기 전에 문서로 먼저 확정)
+- `docs/superpowers/plans/2026-07-18-moongcare-server-implementation.md`
+  — 위 스펙을 20개 태스크로 쪼갠 구현 계획. 태스크마다 "실패하는 테스트
+  작성 → 구현 → 테스트 통과 확인 → 커밋" 순서가 미리 못박혀 있음(TDD).
+
+이렇게 설계를 먼저 문서로 굳혀두면, 실제 구현 단계에서 "이걸 왜
+이렇게 만들었더라"를 다시 고민할 필요 없이 계획대로 순서대로 짜면 됨.
+
+### 2단계 — 구현 (이 세션)
+
+Task 9부터 이어서 진행하면서 **superpowers:executing-plans**와
+**superpowers:subagent-driven-development** 스킬을 로드해서 검토했다.
+다만 subagent-driven-development는 태스크마다 별도 서브에이전트를
+띄워 병렬로 구현시키는 방식인데, 이 프로젝트는 태스크끼리 서로
+import하는 구조라(예: `routers/*.py`가 `services/*.py`를, 그게 다시
+`emotion_session.py`를 참조) 병렬로 나눠서 시키기엔 결합도가 너무
+높다고 판단해서 — 서브에이전트 없이 계획서에 적힌 순서 그대로 한
+태스크씩 직접 TDD로 구현했다 (테스트 작성 → 실행해서 실패 확인 →
+구현 → 통과 확인 → 그 태스크만 커밋, 다음 태스크로).
+
+각 태스크가 끝날 때마다 커밋을 나눴기 때문에 git 로그를 보면
+Task 1~20이 거의 그대로 커밋 단위로 남아있다 (`feat: add SenseVoice
+STT wrapper`, `feat: add voice/analyze router` 등).
+
+### 그 외 사용한 스킬
+
+- **claude-api**: OpenAI → Claude API로 LLM 프로바이더를 바꿔볼 때
+  로드함. 최신 모델 ID(`claude-opus-4-8` 등), Anthropic SDK 사용법
+  (`client.messages.create` — OpenAI의 `chat.completions.create`와
+  달리 system 프롬프트가 별도 파라미터로 빠짐), 마이그레이션 체크리스트를
+  참고해서 `services/chat_service.py` 등을 고쳤다. (이후 크레딧 문제로
+  다시 OpenAI로 되돌림 — 위 "LLM 프로바이더는 OpenAI" 항목 참고.)
+- **artifact-design**: 마이크로 음성을 녹음해서 다운로드하는 테스트
+  페이지를 Claude Artifact로 처음 만들 때 로드함. 다만 Artifact가
+  샌드박스 iframe이라 마이크 권한이 막혀서, 실제로는 로컬 `python -m
+  http.server`로 띄우는 `scripts/manual_test.html` 쪽으로 옮겨감 —
+  Artifact 버전은 디자인 참고용으로만 남음.
+
+### 왜 이렇게 기록해두나
+
+Claude한테 다시 이 프로젝트를 맡기거나 팀원이 비슷한 방식으로 다른
+기능을 추가하고 싶을 때, "설계 문서 먼저 → 태스크 쪼개기 → 태스크당
+TDD로 커밋" 이 순서를 그대로 재사용할 수 있게 하려고 남겨둠. 실제
+설계 스펙/계획 문서가 `docs/superpowers/` 밑에 그대로 있으니 필요하면
+열어보면 됨.
+
+---
+
 ## 알려진 제한사항
 
 - **TTS 목소리**: CosyVoice2 zero-shot용 레퍼런스 음성이 아직
