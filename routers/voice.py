@@ -23,9 +23,14 @@ async def analyze(request: Request, session_id: str = Form(...), audio: UploadFi
 
     try:
         webm_to_wav(webm_path, wav_path)
-        transcript, emotions = await voice_service.analyze_voice(request.app.state, wav_path)
+        transcript, emotions, pitch_mean, pitch_std = await voice_service.analyze_voice(request.app.state, wav_path)
         emotion_session.add_user_turn(session_id, transcript, emotions)
-        return VoiceAnalyzeResponse(transcript=transcript, emotions=emotions)
+        return VoiceAnalyzeResponse(
+            transcript=transcript,
+            emotions=emotions,
+            pitch_mean=pitch_mean,
+            pitch_std=pitch_std,
+        )
     finally:
         for path in (webm_path, wav_path):
             if os.path.exists(path):
