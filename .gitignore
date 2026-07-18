@@ -7,5 +7,6 @@ pretrained_models/
 temp/*
 !temp/.gitkeep
 *.wav
+sample.webm
 .idea/
 *.iml
