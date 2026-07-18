@@ -23,4 +23,12 @@ inflect==7.3.1
 wetext==0.0.4
 gdown==5.1.0
 x-transformers==2.11.24
+setuptools<81
+matplotlib
+wget
+grpcio
+onnx
+pyarrow
+pyworld
+tensorboard
 pytest
