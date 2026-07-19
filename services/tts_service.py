@@ -6,7 +6,8 @@ import torchaudio
 SPK_ID = "moong"
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLACEHOLDER_PROMPT_WAV = os.path.join(_BASE_DIR, "CosyVoice", "asset", "zero_shot_prompt.wav")
-PLACEHOLDER_PROMPT_TEXT = "希望你以后能够做的比我还好呦。"
+# <|endofprompt|> prefix required by CosyVoice3; revert if TTS_MODEL_DIR goes back to v2
+PLACEHOLDER_PROMPT_TEXT = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
 
 
 def register_moong_speaker(tts_model) -> None:
