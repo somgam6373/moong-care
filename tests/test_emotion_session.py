@@ -2,7 +2,7 @@ import pytest
 
 from services.emotion_session import (
     add_user_turn, add_assistant_turn, get_session,
-    compute_average, clear_session, SESSIONS,
+    compute_average, clear_session, get_last_user_emotion, SESSIONS,
 )
 
 
@@ -75,3 +75,20 @@ def test_compute_average_raises_keyerror_with_only_assistant_turns():
 def test_clear_session_idempotent_on_never_created_session():
     # Calling clear_session on a session id that never existed should not raise
     clear_session("never-existed")
+
+
+def test_get_last_user_emotion_returns_most_recent_user_turn():
+    add_user_turn("s1", "t1", {"happy": 0.8, "sad": 0.2})
+    add_assistant_turn("s1", "반가워")
+    add_user_turn("s1", "t2", {"sad": 0.9, "happy": 0.1})
+
+    assert get_last_user_emotion("s1") == {"sad": 0.9, "happy": 0.1}
+
+
+def test_get_last_user_emotion_missing_session_returns_none():
+    assert get_last_user_emotion("does-not-exist") is None
+
+
+def test_get_last_user_emotion_no_user_turns_returns_none():
+    add_assistant_turn("new-id", "안녕!")
+    assert get_last_user_emotion("new-id") is None

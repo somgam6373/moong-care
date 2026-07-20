@@ -46,6 +46,16 @@ def get_session(session_id: str) -> SessionState | None:
     return SESSIONS.get(session_id)
 
 
+def get_last_user_emotion(session_id: str) -> dict[str, float] | None:
+    state = SESSIONS.get(session_id)
+    if state is None:
+        return None
+    for turn in reversed(state.turns):
+        if turn.role == "user":
+            return turn.emotions
+    return None
+
+
 def compute_average(session_id: str) -> tuple[str, dict[str, float]]:
     state = SESSIONS.get(session_id)
     if state is None or state.turn_count == 0:
