@@ -1,23 +1,35 @@
-import io
-import os
+from services.emotion_session import get_last_user_emotion
+from services.openai_client import get_client
 
-import torchaudio
+TTS_MODEL = "gpt-4o-mini-tts"
 
-SPK_ID = "moong"
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PLACEHOLDER_PROMPT_WAV = os.path.join(_BASE_DIR, "CosyVoice", "asset", "zero_shot_prompt.wav")
-# <|endofprompt|> prefix required by CosyVoice3; revert if TTS_MODEL_DIR goes back to v2
-PLACEHOLDER_PROMPT_TEXT = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
+EMOTION_INSTRUCTIONS: dict[str, str] = {
+    "angry": "Speak in a calm, soothing, de-escalating tone.",
+    "disgusted": "Speak in a calm, neutral, non-judgmental tone.",
+    "fearful": "Speak in a reassuring, steady, gentle tone.",
+    "happy": "Speak in a bright, cheerful, warm tone.",
+    "neutral": "Speak in a natural, warm, conversational tone.",
+    "other": "Speak in a natural, warm, conversational tone.",
+    "sad": "Speak in a warm, gentle, comforting tone, as if empathizing with someone who's feeling sad.",
+    "surprised": "Speak in an animated, curious, engaged tone.",
+    "unknown": "Speak in a natural, warm, conversational tone.",
+}
 
 
-def register_moong_speaker(tts_model) -> None:
-    tts_model.add_zero_shot_spk(PLACEHOLDER_PROMPT_TEXT, PLACEHOLDER_PROMPT_WAV, SPK_ID)
-    tts_model.save_spkinfo()
+def resolve_instructions(session_id: str | None) -> str:
+    emotions = get_last_user_emotion(session_id) if session_id else None
+    if not emotions:
+        return EMOTION_INSTRUCTIONS["neutral"]
+    dominant = max(emotions, key=emotions.get)
+    return EMOTION_INSTRUCTIONS.get(dominant, EMOTION_INSTRUCTIONS["neutral"])
 
 
-def synthesize(tts_model, text: str) -> bytes:
-    for result in tts_model.inference_zero_shot(text, "", "", zero_shot_spk_id=SPK_ID):
-        buffer = io.BytesIO()
-        torchaudio.save(buffer, result["tts_speech"], tts_model.sample_rate, format="wav")
-        return buffer.getvalue()
-    raise RuntimeError("TTS produced no audio output")
+def synthesize(text: str, voice: str, instructions: str) -> bytes:
+    client = get_client()
+    response = client.audio.speech.create(
+        model=TTS_MODEL,
+        voice=voice,
+        input=text,
+        instructions=instructions,
+    )
+    return response.read()
