@@ -28,7 +28,14 @@ def test_chat_reply_models():
 
 
 def test_tts_request():
-    assert TTSRequest(text="hello").text == "hello"
+    req = TTSRequest(text="hello")
+    assert req.text == "hello"
+    assert req.session_id is None
+    assert req.voice is None
+
+    req_full = TTSRequest(text="hello", session_id="s1", voice="nova")
+    assert req_full.session_id == "s1"
+    assert req_full.voice == "nova"
 
 
 def test_session_end_models():

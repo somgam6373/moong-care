@@ -13,7 +13,8 @@ class Settings(BaseSettings):
 
     STT_MODEL_DIR: str = "iic/SenseVoiceSmall"
     SER_MODEL_DIR: str = "iic/emotion2vec_plus_large"
-    TTS_MODEL_DIR: str = "pretrained_models/CosyVoice2-0.5B"
+    TTS_DEFAULT_VOICE: str = "nova"
+    TTS_ALLOWED_VOICES: set[str] = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
 
     class Config:
         env_file = ".env"
