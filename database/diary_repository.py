@@ -42,3 +42,10 @@ def save_diary(
 
 def get_diary(db: Session, diary_id: int) -> Diary | None:
     return db.get(Diary, diary_id)
+
+
+def list_diaries(db: Session, session_id: str | None = None) -> list[Diary]:
+    query = db.query(Diary)
+    if session_id is not None:
+        query = query.filter(Diary.session_id == session_id)
+    return query.order_by(Diary.created_at.desc(), Diary.id.desc()).all()

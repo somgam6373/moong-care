@@ -2,7 +2,9 @@ from models.voice import VoiceAnalyzeResponse
 from models.chat import ChatReplyRequest, ChatReplyResponse
 from models.tts import TTSRequest
 from models.emotion import SessionEndRequest, SessionEndResponse
-from models.diary import DiaryGenerateRequest, DiaryGenerateResponse
+from datetime import datetime
+
+from models.diary import DiaryDetail, DiaryGenerateRequest, DiaryGenerateResponse, DiaryListItem
 
 
 def test_voice_analyze_response_roundtrip():
@@ -50,3 +52,28 @@ def test_diary_models():
     resp = DiaryGenerateResponse(diary_id=1, diary_text="오늘은...", summary="좋은 하루", dominant_emotion="happy")
     assert req.session_id == "s1"
     assert resp.diary_id == 1
+
+
+def test_diary_list_item_model():
+    item = DiaryListItem(
+        id=1,
+        session_id="s1",
+        summary="좋은 하루",
+        dominant_emotion="happy",
+        created_at=datetime(2026, 7, 20, 12, 0, 0),
+    )
+    assert item.id == 1
+    assert item.session_id == "s1"
+
+
+def test_diary_detail_model():
+    detail = DiaryDetail(
+        id=1,
+        session_id="s1",
+        diary_text="오늘은...",
+        summary="좋은 하루",
+        dominant_emotion="happy",
+        average_emotions={"happy": 0.9, "neutral": 0.1},
+        created_at=datetime(2026, 7, 20, 12, 0, 0),
+    )
+    assert detail.average_emotions == {"happy": 0.9, "neutral": 0.1}
