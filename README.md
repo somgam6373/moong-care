@@ -2,15 +2,16 @@
 
 '뭉이' 캐릭터와 음성으로 대화하며 감정을 분석하고, 대화 종료 시 자동으로
 일기를 생성해주는 FastAPI 백엔드. STT(SenseVoice) → SER(emotion2vec) →
-LLM 대화(OpenAI) → TTS(CosyVoice3) → 일기 생성(OpenAI) 파이프라인을
+LLM 대화(OpenAI) → TTS(OpenAI gpt-4o-mini-tts) → 일기 생성(OpenAI) 파이프라인을
 하나의 서버로 묶는다.
 
 ---
 
 ## 아키텍처 한 줄 요약
 
-FastAPI 앱 하나, 모델(STT/SER/TTS)은 서버 시작 시(`lifespan`) 한 번만
-GPU에 로드해서 싱글톤으로 재사용. 대화 상태(턴 기록 + 감정 누적)는
+FastAPI 앱 하나, 모델(STT/SER)은 서버 시작 시(`lifespan`) 한 번만
+GPU에 로드해서 싱글톤으로 재사용. TTS는 OpenAI API 호출이라 로컬
+모델 로딩이 없다. 대화 상태(턴 기록 + 감정 누적)는
 `session_id`별로 **프로세스 메모리**에만 들고 있다가, 일기 생성 시점에만
 MySQL에 최종 저장한다. 라우터는 얇게 — 입력 검증하고 service 함수 하나
 호출해서 pydantic 모델로 응답하는 게 전부.
@@ -23,8 +24,9 @@ MySQL에 최종 저장한다. 라우터는 얇게 — 입력 검증하고 servic
   └─ POST /api/v1/chat/reply (session_id, transcript, emotions)
        세션 히스토리 로드 → OpenAI 호출(감정 반영 프롬프트) → assistant turn 기록
        응답: { reply_text }
-  └─ POST /api/v1/tts (text)
-       CosyVoice3 zero-shot 추론 → wav 바이너리
+  └─ POST /api/v1/tts (text, session_id, voice)
+       세션 최근 user 감정 → 톤 instruction 매핑 → OpenAI gpt-4o-mini-tts 호출
+       → wav 바이너리
   (위 3단계를 대화 턴 수만큼 반복)
   └─ POST /api/v1/session/end (session_id)
        누적 감정 평균 + dominant_emotion 계산 (세션은 안 지움)
@@ -43,7 +45,7 @@ MySQL에 최종 저장한다. 라우터는 얇게 — 입력 검증하고 servic
 |---|---|
 | STT | SenseVoice (`iic/SenseVoiceSmall`, funasr) |
 | SER (감정분석) | emotion2vec (`iic/emotion2vec_plus_large`, funasr) |
-| TTS | CosyVoice3 (`FunAudioLLM/Fun-CosyVoice3-0.5B-2512`, zero-shot 모드) |
+| TTS | OpenAI `gpt-4o-mini-tts` (preset voice 선택 + 감정 기반 instructions) |
 | LLM | OpenAI Chat Completions (대화 응답 + 일기/요약 생성) |
 | DB | MySQL (로컬 인스턴스) |
 | 웹 프레임워크 | FastAPI + uvicorn |
@@ -54,12 +56,23 @@ MySQL에 최종 저장한다. 라우터는 얇게 — 입력 검증하고 servic
 ## 왜 이렇게 만들었나 (설계 결정)
 
 **GPU를 쓰는 이유**
-실시간 대화 앱이라 한 턴마다 STT+SER+TTS를 돌려야 한다. CPU로 추론하면
-합쳐서 5~10초 이상 걸려 대화 UX로 못 쓴다. GPU면 1~2초대로 줄어든다.
-GPU가 8GB 카드 한 장뿐이라 세 모델이 자원을 두고 충돌하지 않도록
-`asyncio.Lock`(`stt_lock`/`ser_lock`/`tts_lock`)을 `app.state`에 두고
-추론 구간을 직렬화한다. blocking 추론 호출은 `run_in_threadpool`로
-감싸서 이벤트 루프가 막히지 않게 한다.
+실시간 대화 앱이라 한 턴마다 STT+SER를 돌려야 한다. CPU로 추론하면
+합쳐서 여러 초 걸려 대화 UX로 못 쓴다. GPU면 1~2초대로 줄어든다.
+GPU가 8GB 카드 한 장뿐이라 두 모델이 자원을 두고 충돌하지 않도록
+`asyncio.Lock`(`stt_lock`/`ser_lock`)을 `app.state`에 두고 추론 구간을
+직렬화한다. blocking 추론 호출은 `run_in_threadpool`로 감싸서 이벤트
+루프가 막히지 않게 한다. TTS는 로컬 GPU 모델이 아니라 OpenAI API
+호출이라 이 락에 안 걸린다 (아래 "TTS를 OpenAI API로 바꾼 이유" 참고).
+
+**TTS를 OpenAI API로 바꾼 이유**
+원래 TTS는 로컬 CosyVoice3(zero-shot voice clone, GPU 상주 모델)를
+썼다. 커스텀 목소리 clone은 포기하고 OpenAI `gpt-4o-mini-tts` API
+호출로 교체했다 — GPU 한 장에 세 모델(STT/SER/TTS)을 얹고 락으로
+직렬화하는 부담을 덜고, `instructions` 파라미터로 세션의 최근 user
+감정에 맞춰 톤(위로/차분함/밝음 등)을 자연어로 지시할 수 있어서다.
+대신 목소리는 clone이 아니라 OpenAI preset 중 클라이언트가 고른 것을
+쓴다 (`config.py`의 `TTS_ALLOWED_VOICES`). 관련 결정은
+`docs/superpowers/specs/2026-07-20-openai-tts-emotion-design.md` 참고.
 
 **STT 결과를 후처리(태그 제거)하는 이유**
 SenseVoice raw 출력은 `<|ko|><|NEUTRAL|><|Speech|><|woitn|>오늘 발표가
@@ -89,8 +102,8 @@ emotion2vec 감정 점수만으로는 "이 판단을 얼마나 믿을 수 있나
 Hz 단위)를 추가해서 사람이 참고할 수 있는 보조 지표로 노출한다 — 서버 판단
 로직(감정 선택, 챗 응답, 일기 생성)에는 관여하지 않는 순수 부가 정보다.
 `pitch_std`는 정식 jitter/shimmer 지표가 아니라 발화 전체의 억양 기복을
-"떨림" 근사치로 쓰는 것뿐이다. 계산은 이미 설치돼 있던 `pyworld`(CosyVoice가
-내부적으로 씀)로 하기 때문에 새 의존성이 없다. `services/pitch_service.py`
+"떨림" 근사치로 쓰는 것뿐이다. 계산은 `pyworld` 패키지로 한다.
+`services/pitch_service.py`
 가 담당하고, GPU를 안 쓰는 순수 CPU 연산이라 STT/SER와 함께
 `asyncio.gather`로 병렬 실행된다. (실측 사례: transcript가 `"."`처럼
 STT가 못 알아들은 경우에도 `pitch_mean`이 정상 범위로 나오면 "소리는
@@ -139,7 +152,7 @@ moongcare-server/
 │   ├── ser_service.py         # emotion2vec 추론 + dict 변환
 │   ├── voice_service.py       # STT/SER/pitch 병렬 실행 (asyncio.gather)
 │   ├── pitch_service.py       # pyworld로 피치(F0) 평균/표준편차 계산
-│   ├── tts_service.py         # CosyVoice3 zero-shot 추론
+│   ├── tts_service.py         # OpenAI gpt-4o-mini-tts 호출 + 감정→instruction 매핑
 │   ├── openai_client.py       # OpenAI 클라이언트 싱글톤
 │   ├── chat_service.py        # 대화 응답 생성 (+ 무음 가드)
 │   ├── diary_service.py       # 1인칭 일기 생성
@@ -154,7 +167,7 @@ moongcare-server/
 ├── scripts/
 │   ├── manual_e2e_check.md    # curl로 전체 플로우 수동 확인하는 체크리스트
 │   └── manual_test.html       # 브라우저에서 직접 녹음→대화→TTS 테스트하는 페이지
-└── CosyVoice/                 # CosyVoice 원본 레포(v2/v3 지원) 통째로 vendoring (gitignore됨)
+└── CosyVoice/                 # TTS를 OpenAI로 옮기며 더는 안 씀 (gitignore됨, 안 받아도 됨)
 ```
 
 ---
@@ -164,12 +177,13 @@ moongcare-server/
 ### 0. 사전 준비물
 
 - Python 3.10
-- NVIDIA GPU + CUDA (torch cu121 기준, 8GB VRAM 이상 권장). GPU 없으면
-  `main.py`의 `device="cuda:0"`를 `"cpu"`로 바꿔야 하는데 그러면 위에
-  적은 것처럼 응답이 매우 느려짐.
+- NVIDIA GPU + CUDA (torch cu121 기준, 8GB VRAM 이상 권장) — STT/SER용.
+  GPU 없으면 `main.py`의 `device="cuda:0"`를 `"cpu"`로 바꿔야 하는데
+  그러면 위에 적은 것처럼 응답이 매우 느려짐. (TTS는 OpenAI API 호출이라
+  GPU 불필요)
 - ffmpeg (PATH에 등록돼 있어야 함 — 없으면 서버가 기동 시점에 fail-fast)
 - 로컬 MySQL 인스턴스
-- OpenAI API 키
+- OpenAI API 키 (LLM 대화/일기 생성 + TTS 전부 이걸로 호출)
 
 ### 1. 가상환경 & 의존성
 
@@ -183,25 +197,15 @@ torch/torchaudio는 cu121 빌드가 필요하면 별도로:
 .venv\Scripts\pip install torch==2.3.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
 ```
 
-`requirements.txt`에 CosyVoice/Matcha-TTS 서브모듈이 import 시점에
-요구하는 부가 패키지(`setuptools<81`, `matplotlib`, `wget`, `grpcio`,
-`onnx`, `pyarrow`, `pyworld`, `tensorboard`)도 이미 포함돼 있다 —
-CosyVoice 공식 requirements엔 없지만 실제로 돌려보니 빠져있던 것들.
+`requirements.txt`에는 STT/SER(funasr) 구동에 쓰는 torch 계열 패키지가
+포함돼 있다. TTS는 이제 OpenAI API 호출이라 별도 모델/서브모듈 설치가
+필요 없다 — CosyVoice 코드를 따로 클론하는 단계는 더 이상 없음.
 
-### 2. CosyVoice 코드 받기
-
-`CosyVoice/` 폴더는 `.gitignore`돼 있어서 이 저장소를 클론해도 안 딸려
-온다. 직접 받아야 함:
-```powershell
-git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
-```
-프로젝트 루트에 `CosyVoice/`로 위치시킬 것.
-
-### 3. `.env` 설정
+### 2. `.env` 설정
 
 `.env.example`을 `.env`로 복사하고 값 채우기:
 ```
-OPENAI_API_KEY=sk-...        # 본인 키
+OPENAI_API_KEY=sk-...        # 본인 키 (LLM 대화/일기 생성 + TTS 전부 이걸로 호출)
 OPENAI_MODEL=gpt-4o-mini
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
@@ -210,27 +214,20 @@ MYSQL_PASSWORD=...           # 본인 로컬 MySQL 비번
 MYSQL_DB=moongcare
 STT_MODEL_DIR=iic/SenseVoiceSmall
 SER_MODEL_DIR=iic/emotion2vec_plus_large
-TTS_MODEL_DIR=pretrained_models/Fun-CosyVoice3-0.5B-2512
 ```
 
 STT/SER는 이 ID 그대로 두면 funasr가 첫 실행 때 ModelScope에서 자동
-다운로드한다 — 별도 작업 불필요.
+다운로드한다 — 별도 작업 불필요. TTS는 로컬 가중치 자체가 없음
+(`config.py`의 `TTS_DEFAULT_VOICE`/`TTS_ALLOWED_VOICES`는 기본값이
+있어서 `.env`에 안 적어도 됨, 필요할 때만 오버라이드).
 
-### 4. CosyVoice3 가중치 받기 (TTS, 수동 다운로드 필요)
+> **디스크 공간 팁**: STT/SER 가중치 캐시 경로가 기본
+> `C:\Users\<user>\.cache\modelscope`라 C드라이브가 작으면 꽉 찰 수
+> 있음. 환경변수 `MODELSCOPE_CACHE`를 다른 드라이브 경로로 설정해두면
+> 그쪽으로 받는다. (이미 열려있는 터미널은 이 환경변수를 못 받으니
+> 설정 후 새 터미널에서 실행할 것.)
 
-```powershell
-.venv\Scripts\python -c "from modelscope import snapshot_download; snapshot_download('FunAudioLLM/Fun-CosyVoice3-0.5B-2512', local_dir='pretrained_models/Fun-CosyVoice3-0.5B-2512')"
-```
-11GB 정도 됨(v2보다 큼). `TTS_MODEL_DIR`이 `.env`에서 이 경로를 가리켜야
-한다 (C드라이브 공간 부족하면 다른 드라이브 절대경로로 지정해도 됨).
-
-> **디스크 공간 팁**: STT/SER/TTS 가중치를 합치면 수 GB인데 기본
-> 캐시 경로가 `C:\Users\<user>\.cache\modelscope`라 C드라이브가
-> 작으면 꽉 찰 수 있음. 환경변수 `MODELSCOPE_CACHE`를 다른 드라이브
-> 경로로 설정해두면 그쪽으로 받는다. (이미 열려있는 터미널은 이
-> 환경변수를 못 받으니 설정 후 새 터미널에서 실행할 것.)
-
-### 5. MySQL 준비
+### 3. MySQL 준비
 
 `.env`에 적은 `MYSQL_DB` 이름으로 데이터베이스만 미리 만들어두면 됨
 (테이블은 서버가 시작할 때 `init_db()`가 자동 생성):
@@ -238,7 +235,7 @@ STT/SER는 이 ID 그대로 두면 funasr가 첫 실행 때 ModelScope에서 자
 CREATE DATABASE moongcare;
 ```
 
-### 6. 서버 실행
+### 4. 서버 실행
 
 ```powershell
 .venv\Scripts\uvicorn main:app --host 0.0.0.0 --port 8000
@@ -246,14 +243,14 @@ CREATE DATABASE moongcare;
 또는 IDE에서 `main.py` 재생 버튼으로도 실행 가능 (`if __name__ ==
 "__main__"` 진입점 있음).
 
-첫 실행은 모델 다운로드 때문에 오래 걸림. 로그 마지막에
-`Application startup complete.` / `Uvicorn running on
-http://0.0.0.0:8000` 뜨면 정상.
+첫 실행은 STT/SER 모델 다운로드 때문에 오래 걸림(TTS는 API 호출이라
+다운로드 없음). 로그 마지막에 `Application startup complete.` /
+`Uvicorn running on http://0.0.0.0:8000` 뜨면 정상.
 
 `http://localhost:8000/health` 호출해서 `{"status":"ok"}` 뜨면 확인
 끝.
 
-### 7. 테스트
+### 5. 테스트
 
 ```powershell
 .venv\Scripts\pytest tests/
@@ -355,11 +352,9 @@ TDD로 커밋" 이 순서를 그대로 재사용할 수 있게 하려고 남겨�
 
 ## 알려진 제한사항
 
-- **TTS 목소리**: CosyVoice3 zero-shot용 레퍼런스 음성이 아직
-  placeholder(`CosyVoice/asset/zero_shot_prompt.wav`, 중국어 화자)라
-  한국어 발음이 외국인 억양처럼 들림. `services/tts_service.py`의
-  `PLACEHOLDER_PROMPT_WAV`/`PLACEHOLDER_PROMPT_TEXT`를 한국어 레퍼런스
-  음성+정확한 스크립트로 교체하면 해결됨.
+- **TTS 목소리**: '뭉이' 전용 커스텀 목소리(clone)가 아니라 OpenAI
+  preset 목소리(`TTS_ALLOWED_VOICES`) 중 클라이언트가 고른 것을 씀 —
+  캐릭터 전용 목소리가 필요하면 별도 TTS 프로바이더/파인튜닝 검토 필요.
 - **STT 정확도**: 짧은 발화에서 SenseVoice가 가끔 다르게 알아듣는
   경우가 있음 — 모델 자체 한계.
 - **세션 휘발성**: 서버 재시작하면 진행 중이던 세션(대화 기록)은 전부
