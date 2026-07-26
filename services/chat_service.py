@@ -21,7 +21,11 @@ def build_messages(
     messages = [{"role": "system", "content": MOONG_SYSTEM_PROMPT}]
     for turn in history:
         role = "user" if turn.role == "user" else "assistant"
-        messages.append({"role": role, "content": turn.text})
+        content = turn.text
+        if role == "user" and turn.emotions:
+            past_dominant = max(turn.emotions, key=turn.emotions.get)
+            content = f"[감정: {past_dominant}] {content}"
+        messages.append({"role": role, "content": content})
     dominant = max(emotions, key=emotions.get) if emotions else "neutral"
     messages.append({
         "role": "user",

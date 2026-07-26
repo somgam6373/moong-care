@@ -26,9 +26,24 @@ def test_build_messages_includes_history_and_current_emotion():
     messages = chat_service.build_messages(history, "오늘 힘들었어", {"sad": 0.8, "neutral": 0.2})
 
     assert messages[0]["role"] == "system"
-    assert messages[1] == {"role": "user", "content": "안녕"}
+    assert messages[1] == {"role": "user", "content": "[감정: happy] 안녕"}
     assert "sad" in messages[-1]["content"]
     assert "오늘 힘들었어" in messages[-1]["content"]
+
+
+def test_build_messages_carries_emotion_across_multiple_past_turns():
+    history = [
+        TurnRecord(role="user", text="오늘 시험 봤어", emotions={"fearful": 0.9, "neutral": 0.1}),
+        TurnRecord(role="assistant", text="긴장했겠다", emotions=None),
+        TurnRecord(role="user", text="근데 잘 봤어", emotions={"happy": 0.7, "surprised": 0.3}),
+        TurnRecord(role="user", text="그냥 그랬어", emotions=None),
+    ]
+    messages = chat_service.build_messages(history, "이제 좀 쉬고 싶어", {"neutral": 1.0})
+
+    assert messages[1] == {"role": "user", "content": "[감정: fearful] 오늘 시험 봤어"}
+    assert messages[2] == {"role": "assistant", "content": "긴장했겠다"}
+    assert messages[3] == {"role": "user", "content": "[감정: happy] 근데 잘 봤어"}
+    assert messages[4] == {"role": "user", "content": "그냥 그랬어"}
 
 
 def test_get_reply_calls_openai_client_and_returns_text(monkeypatch):
