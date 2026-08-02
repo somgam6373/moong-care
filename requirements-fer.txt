@@ -1,0 +1,30 @@
+# FER(표정 감정 인식) 전용 의존성
+#
+# 설치:  scripts\install_fer.bat  (권장)
+#   또는  pip install -r requirements-fer.txt
+#
+# ────────────────────────────────────────────────────────────────
+# 버전 상한이 박혀 있는 이유 (지우지 마세요)
+#
+#   numpy<2
+#     torch 2.3.1 / onnxruntime 1.18.0 이 numpy 1.x 로 컴파일되어 있다.
+#     numpy 2 로 올라가면 "_ARRAY_API not found" 로 STT/SER 까지 전부 죽는다.
+#
+#   opencv-python<5, opencv-contrib-python<5
+#     OpenCV 5.x 는 numpy>=2 를 요구한다. 5.x 를 깔면 위 제약과 충돌한다.
+#     opencv-contrib 는 mediapipe 가 끌어오므로 같이 묶어둔다.
+#
+#   mediapipe==0.10.14
+#     0.11 이후 mp.solutions 레거시 API 가 빠져서
+#     "module 'mediapipe' has no attribute 'solutions'" 가 난다.
+# ────────────────────────────────────────────────────────────────
+
+emotiefflib==1.1.1
+mediapipe==0.10.14
+opencv-python==4.11.0.86
+opencv-contrib-python==4.11.0.86
+
+# 아래 둘은 기존 requirements.txt 와 중복이지만,
+# FER 만 따로 설치할 때 pip 이 버전을 올려버리는 사고를 막기 위해 명시한다.
+numpy<2
+onnxruntime==1.18.0

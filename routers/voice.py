@@ -25,6 +25,10 @@ async def analyze(request: Request, session_id: str = Form(...), audio: UploadFi
         webm_to_wav(webm_path, wav_path)
         transcript, emotions, pitch_mean, pitch_std = await voice_service.analyze_voice(request.app.state, wav_path)
         emotion_session.add_user_turn(session_id, transcript, emotions)
+
+        dominant = max(emotions, key=emotions.get) if emotions else "neutral"
+        print(f'[voice] 인식된 말: "{transcript}" | 감정: {dominant} ({emotions.get(dominant, 0):.2f})')
+
         return VoiceAnalyzeResponse(
             transcript=transcript,
             emotions=emotions,
