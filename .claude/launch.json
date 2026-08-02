@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "moong-care-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:\\Moong-Care-ver.2", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

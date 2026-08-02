@@ -74,3 +74,21 @@ def test_get_reply_calls_client_for_short_but_real_transcript(monkeypatch):
     reply = chat_service.get_reply([], "안녕", {"happy": 1.0})
 
     assert reply == "그랬구나!"
+
+
+def test_build_messages_uses_empathetic_prompt_by_default():
+    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8})
+
+    assert messages[0]["content"] == chat_service.EMPATHETIC_SYSTEM_PROMPT
+
+
+def test_build_messages_uses_realistic_prompt_when_requested():
+    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8}, style="realistic")
+
+    assert messages[0]["content"] == chat_service.REALISTIC_SYSTEM_PROMPT
+
+
+def test_build_messages_falls_back_to_default_for_unknown_style():
+    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8}, style="unknown")
+
+    assert messages[0]["content"] == chat_service.EMPATHETIC_SYSTEM_PROMPT
