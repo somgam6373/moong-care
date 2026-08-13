@@ -1,0 +1,72 @@
+STT/SER 구현 관련 설계 이유 정리
+=================================
+
+참고: SenseVoice STT + emotion2vec SER 자체는 다른 오픈소스 예제
+(https://github.com/hyun-sai/sensevoice 의 sense.py / emotion.py)와
+핵심 모델·호출 방식이 동일함 (funasr.AutoModel, iic/SenseVoiceSmall,
+iic/emotion2vec_plus_large). 아래는 그 예제와 다르게 구현한 부분과 이유.
+
+
+1. funasr 내장 rich_transcription_postprocess를 안 쓰고
+   직접 정규식(strip_sensevoice_tags)을 짠 이유
+---------------------------------------------------------
+funasr/utils/postprocess_utils.py의 rich_transcription_postprocess는
+SenseVoice가 붙이는 감정/이벤트 태그를 이모지로 바꿔치기하는 함수임
+(예: <|HAPPY|> → 😊, <|Laughter|> → 😆).
+
+우리 프로젝트엔 안 맞음:
+- SenseVoice 자체 감정 태그(<|NEUTRAL|> 등)는 부정확한 부가 기능이고,
+  실제 감정 분석은 emotion2vec이 별도로 담당함. SenseVoice 감정 태그를
+  이모지로 남겨둘 이유가 없음.
+- 이모지가 transcript에 섞이면 GPT 프롬프트나 일기 텍스트에 그대로
+  들어가 지저분해짐.
+- 우리가 원하는 건 "태그 전부 제거, 순수 텍스트만" — <\|.*?\|> 정규식
+  하나로 충분하고 더 단순하고 결과가 예측 가능함.
+
+
+2. device="cpu" 대신 device="cuda:0" (GPU)를 쓴 이유
+---------------------------------------------------------
+이 프로젝트는 실시간 대화형 음성 앱이라 한 턴마다 STT + SER + TTS를
+순차/병렬로 돌려야 함. SenseVoice / emotion2vec / CosyVoice2를 전부
+CPU로 추론하면 각각 몇 초씩 걸려 합산하면 응답까지 5~10초 이상 걸릴 수
+있음 — 대화 UX로 쓸 수 없는 수준.
+
+GPU 추론이면 이걸 1~2초대로 줄일 수 있어서 device="cuda:0"으로 설정함.
+(Task1에서 torch cu121 설치, GPU가 8GB 카드 하나뿐이라 세 모델이 GPU
+자원을 두고 충돌하지 않도록 asyncio.Lock으로 순서를 맞춘 것도 같은
+이유에서임.)
+
+
+3. STT 결과를 후처리(태그 제거)한 이유
+---------------------------------------------------------
+SenseVoice가 반환하는 raw text는 다음과 같은 형태임:
+
+  <|ko|><|NEUTRAL|><|Speech|><|woitn|>오늘 발표가 잘 됐어요
+
+언어/감정/이벤트/ITN 태그가 실제 발화 문장 앞에 문자열로 그대로 붙어서
+나옴. 이걸 그대로 사용하면:
+- GPT 프롬프트에 저 태그들이 텍스트로 섞여 들어가 응답 품질이 떨어짐.
+- API 응답(transcript)이나 일기 텍스트에 지저분한 태그가 그대로
+  노출됨.
+
+그래서 순수 발화 텍스트만 남기기 위해 태그를 제거함
+(utils/text_parser.py의 strip_sensevoice_tags).
+
+
+4. SER 결과를 후처리한 이유
+---------------------------------------------------------
+emotion2vec의 raw 출력은 두 개의 병렬 배열임:
+
+  labels: ["生气/angry", "开心/happy", ...]
+  scores: [0.05, 0.65, ...]
+
+중국어/영어가 섞인 라벨과 별도의 점수 배열 형태라 그대로 쓸 수 없음:
+- API 응답 스펙(VoiceAnalyzeResponse.emotions: dict[str, float])이
+  {"angry": 0.05, ...} 같은 dict 형태를 요구함.
+- services/emotion_session.py가 턴마다 감정을 누적 합산함
+  (emotion_sums[cls] += ...). 이 합산/평균 계산이 되려면 클래스 이름이
+  매 턴 동일한 영어 키로 고정돼 있어야 함 — 중국어가 섞인 raw label로는
+  일관된 합산이 불가능함.
+
+그래서 services/ser_service.py의 parse_emotion2vec_output이
+"生气/angry"에서 영어 부분만 추출해 고정된 영어 키의 dict로 변환함.

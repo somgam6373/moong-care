@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoongCare Mood Light Test</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --line: #d8d8d8;
+      --soft: #f6f6f6;
+      --text: #1f1f1f;
+      --muted: #666;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #fff;
+    }
+
+    main {
+      width: min(980px, calc(100vw - 32px));
+      margin: 24px auto 48px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    section.full {
+      grid-column: 1 / -1;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input, select {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 9px;
+      font: inherit;
+      background: #fff;
+    }
+
+    button {
+      height: 34px;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 0 12px;
+      font: inherit;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      border-color: var(--line);
+      background: #fff;
+      color: #222;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .row > * {
+      flex: 0 0 auto;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .recording {
+      color: #b52323;
+      font-weight: 700;
+    }
+
+    .swatchLine {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .swatch {
+      width: 58px;
+      height: 58px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background: #eee;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 4px 8px;
+      font-size: 13px;
+    }
+
+    .kv div:nth-child(odd) {
+      color: var(--muted);
+    }
+
+    pre {
+      min-height: 72px;
+      max-height: 360px;
+      overflow: auto;
+      margin: 10px 0 0;
+      padding: 10px;
+      border-radius: 6px;
+      background: var(--soft);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      font: inherit;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>MoongCare 감정 케어 무드등 테스트</h1>
+  <p class="sub">서버 실행 후 이 파일을 로컬 웹서버로 열면 녹음, 감정 색상, 수면등 색상, 편지 생성까지 확인할 수 있습니다.</p>
+
+  <div class="grid">
+    <section class="full">
+      <h2>연결 설정</h2>
+      <label for="baseUrl">서버 주소</label>
+      <input id="baseUrl" value="http://localhost:8000">
+      <label for="sessionId">session_id</label>
+      <div class="row">
+        <input id="sessionId" style="flex: 1 1 260px;">
+        <button class="secondary" id="newSessionBtn">새 세션</button>
+        <button class="secondary" id="healthBtn">health 확인</button>
+      </div>
+      <pre id="healthOut">대기 중</pre>
+    </section>
+
+    <section>
+      <h2>1. 음성 분석 / 실시간 색상</h2>
+      <div class="row">
+        <button id="recordBtn">녹음 시작</button>
+        <span id="recordStatus" class="status">대기 중</span>
+      </div>
+      <audio id="recordPreview" controls></audio>
+      <div class="kv" style="margin-top: 8px;">
+        <div>record mime</div><div id="recordMime">-</div>
+        <div>record size</div><div id="recordSize">-</div>
+      </div>
+      <div class="swatchLine">
+        <div id="careSwatch" class="swatch"></div>
+        <div class="kv">
+          <div>care_emotion</div><div id="careEmotion">-</div>
+          <div>label</div><div id="careLabel">-</div>
+          <div>confidence</div><div id="careConfidence">-</div>
+          <div>color</div><div id="careColorText">-</div>
+        </div>
+      </div>
+      <pre id="analyzeOut">대기 중</pre>
+    </section>
+
+    <section>
+      <h2>2. 뭉이 답장 / TTS</h2>
+      <label for="style">답장 스타일</label>
+      <select id="style">
+        <option value="empathetic">empathetic</option>
+        <option value="realistic">realistic</option>
+      </select>
+      <label for="voice">TTS voice</label>
+      <select id="voice">
+        <option value="nova">nova</option>
+        <option value="alloy">alloy</option>
+        <option value="echo">echo</option>
+        <option value="fable">fable</option>
+        <option value="onyx">onyx</option>
+        <option value="shimmer">shimmer</option>
+      </select>
+      <div class="row" style="margin-top: 10px;">
+        <button id="chatBtn" disabled>답장 받기</button>
+        <button id="ttsBtn" disabled>음성 듣기</button>
+      </div>
+      <audio id="ttsAudio" controls></audio>
+      <pre id="chatOut">대기 중</pre>
+    </section>
+
+    <section>
+      <h2>3. 세션 종료 / 수면등 색상</h2>
+      <button id="endBtn" disabled>session/end 호출</button>
+      <div class="swatchLine">
+        <div id="sleepSwatch" class="swatch"></div>
+        <div class="kv">
+          <div>sleep color</div><div id="sleepColorText">-</div>
+          <div>brightness</div><div id="sleepBrightness">-</div>
+          <div>transition</div><div id="sleepTransition">-</div>
+        </div>
+      </div>
+      <pre id="endOut">대기 중</pre>
+    </section>
+
+    <section>
+      <h2>4. 일기 / 편지 생성</h2>
+      <button id="diaryBtn" disabled>diary/generate 호출</button>
+      <label for="letterText">letter_text</label>
+      <textarea id="letterText" readonly></textarea>
+      <pre id="diaryOut">대기 중</pre>
+    </section>
+
+    <section class="full">
+      <h2>최근 원본 응답</h2>
+      <pre id="rawOut">대기 중</pre>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const pretty = (value) => JSON.stringify(value, null, 2);
+  const base = () => $("baseUrl").value.replace(/\/$/, "");
+
+  let lastAnalyze = null;
+  let lastReply = "";
+  let lastLetterId = null;
+  let recorder = null;
+  let stream = null;
+  let chunks = [];
+  let lastRecordingBlob = null;
+
+  function newSession() {
+    $("sessionId").value = crypto.randomUUID();
+    lastAnalyze = null;
+    lastReply = "";
+    lastLetterId = null;
+    $("chatBtn").disabled = true;
+    $("ttsBtn").disabled = true;
+    $("endBtn").disabled = true;
+    $("diaryBtn").disabled = true;
+    $("careSwatch").style.background = "#eee";
+    $("sleepSwatch").style.background = "#eee";
+    $("careEmotion").textContent = "-";
+    $("careLabel").textContent = "-";
+    $("careConfidence").textContent = "-";
+    $("careColorText").textContent = "-";
+    $("sleepColorText").textContent = "-";
+    $("sleepBrightness").textContent = "-";
+    $("sleepTransition").textContent = "-";
+    $("letterText").value = "";
+    $("rawOut").textContent = "새 세션 생성됨: " + $("sessionId").value;
+  }
+
+  async function readJson(res) {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
+  }
+
+  async function requestJson(path, options = {}) {
+    const res = await fetch(base() + path, options);
+    const body = await readJson(res);
+    $("rawOut").textContent = res.status + " " + res.statusText + "\n" + pretty(body);
+    if (!res.ok) {
+      throw new Error(res.status + " " + (body.detail || res.statusText));
+    }
+    return body;
+  }
+
+  function showCare(data) {
+    const color = data.care_color;
+    $("careEmotion").textContent = data.care_emotion || "-";
+    $("careLabel").textContent = data.care_emotion_label || "-";
+    $("careConfidence").textContent = data.care_confidence ?? "-";
+    if (color) {
+      $("careSwatch").style.background = color.hex;
+      $("careColorText").textContent = `${color.hex} / ${color.brightness} / ${color.transition_ms}ms`;
+    }
+  }
+
+  function showSleep(data) {
+    const color = data.sleep_color;
+    if (color) {
+      $("sleepSwatch").style.background = color.hex;
+      $("sleepColorText").textContent = color.hex;
+      $("sleepBrightness").textContent = color.brightness;
+      $("sleepTransition").textContent = color.transition_ms + "ms";
+    }
+  }
+
+  $("newSessionBtn").addEventListener("click", newSession);
+
+  $("healthBtn").addEventListener("click", async () => {
+    $("healthOut").textContent = "요청 중...";
+    try {
+      const data = await requestJson("/health");
+      $("healthOut").textContent = pretty(data);
+    } catch (err) {
+      $("healthOut").textContent = String(err);
+    }
+  });
+
+  $("recordBtn").addEventListener("click", async () => {
+    if (recorder && recorder.state === "recording") {
+      recorder.stop();
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      $("recordBtn").textContent = "녹음 시작";
+      $("recordStatus").textContent = "분석 준비 중";
+      $("recordStatus").className = "status";
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      $("recordMime").textContent = recorder.mimeType || "audio/webm;codecs=opus";
+      recorder.ondataavailable = (event) => chunks.push(event.data);
+      recorder.onstop = analyzeVoice;
+      recorder.start();
+      $("recordBtn").textContent = "녹음 정지";
+      $("recordStatus").textContent = "● 녹음 중";
+      $("recordStatus").className = "recording";
+    } catch (err) {
+      $("recordStatus").textContent = String(err);
+    }
+  });
+
+  async function analyzeVoice() {
+    $("analyzeOut").textContent = "voice/analyze 요청 중...";
+    try {
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      lastRecordingBlob = blob;
+      $("recordSize").textContent = `${blob.size} bytes`;
+      $("recordPreview").src = URL.createObjectURL(blob);
+      const form = new FormData();
+      form.append("session_id", $("sessionId").value);
+      form.append("audio", blob, "recording.webm");
+      const data = await requestJson("/api/v1/voice/analyze", {
+        method: "POST",
+        body: form,
+      });
+
+      lastAnalyze = data;
+      $("analyzeOut").textContent = pretty(data);
+      showCare(data);
+      $("chatBtn").disabled = false;
+      $("endBtn").disabled = false;
+      $("diaryBtn").disabled = false;
+      $("recordStatus").textContent = "분석 완료";
+    } catch (err) {
+      $("analyzeOut").textContent = String(err);
+      $("recordStatus").textContent = "실패";
+    }
+  }
+
+  $("chatBtn").addEventListener("click", async () => {
+    if (!lastAnalyze) return;
+    $("chatOut").textContent = "chat/reply 요청 중...";
+    try {
+      const data = await requestJson("/api/v1/chat/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: $("sessionId").value,
+          transcript: lastAnalyze.transcript,
+          emotions: lastAnalyze.emotions,
+          style: $("style").value,
+        }),
+      });
+      lastReply = data.reply_text;
+      $("chatOut").textContent = pretty(data);
+      $("ttsBtn").disabled = false;
+    } catch (err) {
+      $("chatOut").textContent = String(err);
+    }
+  });
+
+  $("ttsBtn").addEventListener("click", async () => {
+    if (!lastReply) return;
+    $("chatOut").textContent = "tts 요청 중...";
+    try {
+      const res = await fetch(base() + "/api/v1/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: lastReply,
+          session_id: $("sessionId").value,
+          voice: $("voice").value,
+        }),
+      });
+      if (!res.ok) throw new Error(res.status + " " + res.statusText);
+      const blob = await res.blob();
+      $("ttsAudio").src = URL.createObjectURL(blob);
+      await $("ttsAudio").play();
+      $("chatOut").textContent = "TTS 재생 중";
+    } catch (err) {
+      $("chatOut").textContent = String(err);
+    }
+  });
+
+  $("endBtn").addEventListener("click", async () => {
+    $("endOut").textContent = "session/end 요청 중...";
+    try {
+      const data = await requestJson("/api/v1/session/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: $("sessionId").value }),
+      });
+      $("endOut").textContent = pretty(data);
+      showSleep(data);
+      $("diaryBtn").disabled = false;
+    } catch (err) {
+      $("endOut").textContent = String(err);
+    }
+  });
+
+  $("diaryBtn").addEventListener("click", async () => {
+    $("diaryOut").textContent = "diary/generate 요청 중...";
+    try {
+      const data = await requestJson("/api/v1/diary/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: $("sessionId").value }),
+      });
+      lastLetterId = data.letter_id;
+      $("diaryOut").textContent = pretty(data);
+      $("letterText").value = data.letter_text || "";
+    } catch (err) {
+      $("diaryOut").textContent = String(err);
+    }
+  });
+
+  newSession();
+})();
+</script>
+</body>
+</html>
