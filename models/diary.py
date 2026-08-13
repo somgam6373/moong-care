@@ -9,7 +9,9 @@ class DiaryGenerateRequest(BaseModel):
 
 class DiaryGenerateResponse(BaseModel):
     diary_id: int
+    letter_id: int
     diary_text: str
+    letter_text: str
     summary: str
     dominant_emotion: str
 

@@ -8,7 +8,7 @@ from funasr import AutoModel as FunASRAutoModel
 
 from config import settings
 from database.connection import init_db
-from routers import chat, diary, session, tts, voice
+from routers import chat, diary, letter, session, tts, voice
 from utils.audio_converter import ensure_ffmpeg_available
 
 
@@ -40,6 +40,7 @@ app.include_router(chat.router)
 app.include_router(tts.router)
 app.include_router(session.router)
 app.include_router(diary.router)
+app.include_router(letter.router)
 
 
 @app.get("/health")

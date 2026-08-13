@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     SER_MODEL_DIR: str = "iic/emotion2vec_plus_large"
     TTS_DEFAULT_VOICE: str = "nova"
     TTS_ALLOWED_VOICES: set[str] = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
+    MOOD_LIGHT_ENDPOINT: str = ""
+    MOOD_LIGHT_TIMEOUT_SECONDS: float = 2.0
 
     class Config:
         env_file = ".env"

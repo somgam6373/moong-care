@@ -3,6 +3,7 @@ import pytest
 from services.emotion_session import (
     add_user_turn, add_assistant_turn, get_session,
     compute_average, clear_session, get_last_user_emotion, SESSIONS,
+    get_recent_context, get_care_timeline, set_sleep_result, get_sleep_result,
 )
 
 
@@ -92,3 +93,62 @@ def test_get_last_user_emotion_missing_session_returns_none():
 def test_get_last_user_emotion_no_user_turns_returns_none():
     add_assistant_turn("new-id", "안녕!")
     assert get_last_user_emotion("new-id") is None
+
+
+def test_add_user_turn_stores_care_fields():
+    add_user_turn(
+        "s1",
+        "오늘 발표가 긴장돼",
+        {"fearful": 0.7},
+        pitch_mean=211.4,
+        pitch_std=38.2,
+        care_emotion="tension",
+        care_confidence=0.74,
+        care_color={"hex": "#7DCAC3", "brightness": 0.38, "transition_ms": 1800},
+    )
+
+    turn = get_session("s1").turns[0]
+    assert turn.pitch_mean == 211.4
+    assert turn.pitch_std == 38.2
+    assert turn.care_emotion == "tension"
+    assert turn.care_confidence == 0.74
+    assert turn.care_color["hex"] == "#7DCAC3"
+
+
+def test_get_recent_context_includes_care_emotion():
+    add_user_turn("s1", "t1", {"happy": 1.0}, care_emotion="joy")
+    add_assistant_turn("s1", "좋았겠다")
+    add_user_turn("s1", "t2", {"fearful": 1.0}, care_emotion="tension")
+
+    context = get_recent_context("s1", limit=2)
+
+    assert context == [
+        {"role": "assistant", "text": "좋았겠다"},
+        {"role": "user", "text": "t2", "care_emotion": "tension"},
+    ]
+
+
+def test_get_care_timeline_returns_user_care_turns_only():
+    add_user_turn("s1", "t1", {"happy": 1.0}, care_emotion="joy", care_confidence=0.8)
+    add_assistant_turn("s1", "좋았겠다")
+    add_user_turn("s1", "t2", {"fearful": 1.0})
+
+    timeline = get_care_timeline("s1")
+
+    assert timeline == [
+        {
+            "transcript": "t1",
+            "care_emotion": "joy",
+            "confidence": 0.8,
+            "care_color": None,
+        }
+    ]
+
+
+def test_sleep_result_roundtrip():
+    set_sleep_result("s1", "warm_dim", {"hex": "#C9785A", "brightness": 0.16, "transition_ms": 6000})
+
+    profile, color = get_sleep_result("s1")
+
+    assert profile == "warm_dim"
+    assert color["hex"] == "#C9785A"

@@ -92,3 +92,12 @@ def test_build_messages_falls_back_to_default_for_unknown_style():
     messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8}, style="unknown")
 
     assert messages[0]["content"] == chat_service.EMPATHETIC_SYSTEM_PROMPT
+
+
+def test_system_prompts_do_not_force_every_reply_to_end_with_question():
+    assert "반드시 하나" not in chat_service.EMPATHETIC_SYSTEM_PROMPT
+    assert "반드시 하나" not in chat_service.REALISTIC_SYSTEM_PROMPT
+    assert "필요할 때만" in chat_service.EMPATHETIC_SYSTEM_PROMPT
+    assert "필요할 때만" in chat_service.REALISTIC_SYSTEM_PROMPT
+    assert "억지로 질문으로 끝내지 말고" in chat_service.EMPATHETIC_SYSTEM_PROMPT
+    assert "억지로 질문으로 끝내지 말고" in chat_service.REALISTIC_SYSTEM_PROMPT

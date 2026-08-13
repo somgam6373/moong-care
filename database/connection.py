@@ -13,6 +13,7 @@ Base = declarative_base()
 
 def init_db() -> None:
     from database import diary_repository  # noqa: F401  (registers Diary model)
+    from database import letter_repository  # noqa: F401  (registers Letter model)
     Base.metadata.create_all(bind=engine)
 
 

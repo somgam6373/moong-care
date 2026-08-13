@@ -5,13 +5,21 @@ from sqlalchemy.orm import Session
 
 from database.connection import get_db
 from database.diary_repository import get_diary, list_diaries, save_diary
+from database.letter_repository import save_letter
 from models.diary import (
     DiaryDetail,
     DiaryGenerateRequest,
     DiaryGenerateResponse,
     DiaryListItem,
 )
-from services import diary_service, emotion_session, summary_service
+from services import (
+    color_care_service,
+    diary_service,
+    emotion_session,
+    letter_service,
+    sleep_color_service,
+    summary_service,
+)
 
 router = APIRouter(prefix="/api/v1/diary", tags=["diary"])
 
@@ -29,12 +37,26 @@ async def generate(payload: DiaryGenerateRequest, db: Session = Depends(get_db))
 
     diary_text = diary_service.generate_diary(session.turns, average)
     summary = summary_service.summarize_diary(diary_text)
+
+    _, sleep_color = emotion_session.get_sleep_result(payload.session_id)
+    if sleep_color is None:
+        care_timeline = emotion_session.get_care_timeline(payload.session_id)
+        sleep_profile = sleep_color_service.choose_sleep_profile(care_timeline)
+        sleep_color = color_care_service.get_sleep_color(sleep_profile).model_dump()
+        emotion_session.set_sleep_result(payload.session_id, sleep_profile, sleep_color)
+    else:
+        care_timeline = emotion_session.get_care_timeline(payload.session_id)
+
+    letter_text = letter_service.generate_letter(session.turns, average, care_timeline, sleep_color)
     diary = save_diary(db, payload.session_id, diary_text, summary, dominant, average)
+    letter = save_letter(db, payload.session_id, diary.id, letter_text, summary, dominant, sleep_color)
     emotion_session.clear_session(payload.session_id)
 
     return DiaryGenerateResponse(
         diary_id=diary.id,
+        letter_id=letter.id,
         diary_text=diary_text,
+        letter_text=letter_text,
         summary=summary,
         dominant_emotion=dominant,
     )
