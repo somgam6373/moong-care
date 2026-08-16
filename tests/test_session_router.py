@@ -19,7 +19,7 @@ def test_end_returns_404_for_missing_session():
     assert response.status_code == 404
 
 
-def test_end_returns_dominant_and_average_emotions():
+def test_end_returns_dominant_care_emotion_and_average_voice_emotions():
     emotion_session.SESSIONS.clear()
     emotion_session.add_user_turn("s1", "t1", {"happy": 0.8, "sad": 0.2}, care_emotion="joy")
     emotion_session.add_user_turn("s1", "t2", {"happy": 0.4, "sad": 0.6}, care_emotion="sadness")
@@ -29,7 +29,7 @@ def test_end_returns_dominant_and_average_emotions():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["dominant_emotion"] == "happy"
+    assert body["dominant_emotion"] == "joy"
     assert body["average_emotions"]["happy"] == pytest.approx(0.6)
     assert body["sleep_color"] == {"hex": "#D18461", "brightness": 0.14, "transition_ms": 7000}
 

@@ -24,6 +24,7 @@ def _format_conversation(history: list[TurnRecord]) -> str:
 def generate_letter(
     history: list[TurnRecord],
     average_emotions: dict[str, float],
+    dominant_care_emotion: str,
     care_timeline: list[dict],
     sleep_color: dict | None,
 ) -> str:
@@ -31,6 +32,7 @@ def generate_letter(
     payload = {
         "conversation": _format_conversation(history),
         "average_voice_emotions": average_emotions,
+        "dominant_care_emotion": dominant_care_emotion,
         "care_timeline": care_timeline,
         "sleep_color": sleep_color,
     }

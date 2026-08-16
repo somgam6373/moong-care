@@ -7,6 +7,7 @@ class ChatReplyRequest(BaseModel):
     session_id: str
     transcript: str
     emotions: dict[str, float]
+    care_emotion: str | None = None
     style: Literal["empathetic", "realistic"] = "empathetic"
 
 

@@ -31,11 +31,12 @@ async def generate(payload: DiaryGenerateRequest, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="session not found")
 
     try:
-        dominant, average = emotion_session.compute_average(payload.session_id)
+        _, average = emotion_session.compute_average(payload.session_id)
+        dominant = emotion_session.compute_dominant_care_emotion(payload.session_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="session has no turns")
 
-    diary_text = diary_service.generate_diary(session.turns, average)
+    diary_text = diary_service.generate_diary(session.turns, average, dominant)
     summary = summary_service.summarize_diary(diary_text)
 
     _, sleep_color = emotion_session.get_sleep_result(payload.session_id)
@@ -47,7 +48,7 @@ async def generate(payload: DiaryGenerateRequest, db: Session = Depends(get_db))
     else:
         care_timeline = emotion_session.get_care_timeline(payload.session_id)
 
-    letter_text = letter_service.generate_letter(session.turns, average, care_timeline, sleep_color)
+    letter_text = letter_service.generate_letter(session.turns, average, dominant, care_timeline, sleep_color)
     diary = save_diary(db, payload.session_id, diary_text, summary, dominant, average)
     letter = save_letter(db, payload.session_id, diary.id, letter_text, summary, dominant, sleep_color)
     emotion_session.clear_session(payload.session_id)

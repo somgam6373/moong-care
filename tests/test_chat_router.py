@@ -23,9 +23,15 @@ def test_reply_returns_404_when_session_missing():
 
 def test_reply_returns_text_and_records_assistant_turn(monkeypatch):
     emotion_session.SESSIONS.clear()
-    emotion_session.add_user_turn("s1", "안녕", {"happy": 1.0})
+    emotion_session.add_user_turn("s1", "안녕", {"happy": 1.0}, care_emotion="joy")
+    captured = {}
+
+    def fake_get_reply(history, transcript, emotions, style, care_emotion):
+        captured["care_emotion"] = care_emotion
+        return "반가워!"
+
     monkeypatch.setattr(
-        chat_router.chat_service, "get_reply", lambda history, transcript, emotions, style: "반가워!"
+        chat_router.chat_service, "get_reply", fake_get_reply
     )
 
     client = TestClient(_build_app())
@@ -36,4 +42,5 @@ def test_reply_returns_text_and_records_assistant_turn(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"reply_text": "반가워!"}
+    assert captured["care_emotion"] == "joy"
     assert emotion_session.get_session("s1").turns[-1].role == "assistant"

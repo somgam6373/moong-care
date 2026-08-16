@@ -29,9 +29,10 @@ def test_generate_diary_includes_conversation_and_emotion(monkeypatch):
         TurnRecord(role="user", text="오늘 발표가 잘 됐어요", emotions={"happy": 0.8}),
         TurnRecord(role="assistant", text="정말 잘했네!", emotions=None),
     ]
-    diary_text = diary_service.generate_diary(history, {"happy": 0.8, "neutral": 0.2})
+    diary_text = diary_service.generate_diary(history, {"happy": 0.8, "neutral": 0.2}, "joy")
 
     assert diary_text == "오늘은 발표를 해서 뿌듯했다."
     sent_prompt = fake_client.chat.completions.last_messages[-1]["content"]
     assert "오늘 발표가 잘 됐어요" in sent_prompt
+    assert "joy" in sent_prompt
     assert "happy" in sent_prompt

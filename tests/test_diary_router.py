@@ -51,9 +51,17 @@ def test_generate_creates_diary_and_clears_session(monkeypatch):
         care_confidence=0.8,
     )
 
-    monkeypatch.setattr(diary_router.diary_service, "generate_diary", lambda history, average: "오늘은 발표를 잘해서 기뻤다.")
+    monkeypatch.setattr(
+        diary_router.diary_service,
+        "generate_diary",
+        lambda history, average, dominant_care_emotion: "오늘은 발표를 잘해서 기뻤다.",
+    )
     monkeypatch.setattr(diary_router.summary_service, "summarize_diary", lambda diary_text: "발표 성공으로 뿌듯한 하루")
-    monkeypatch.setattr(diary_router.letter_service, "generate_letter", lambda history, average, care_timeline, sleep_color: "오늘 발표 이야기를 들으며 나도 기뻤어.")
+    monkeypatch.setattr(
+        diary_router.letter_service,
+        "generate_letter",
+        lambda history, average, dominant_care_emotion, care_timeline, sleep_color: "오늘 발표 이야기를 들으며 나도 기뻤어.",
+    )
 
     app, _ = _build_app()
     client = TestClient(app)
@@ -65,7 +73,7 @@ def test_generate_creates_diary_and_clears_session(monkeypatch):
     assert body["letter_text"] == "오늘 발표 이야기를 들으며 나도 기뻤어."
     assert body["letter_id"] == 1
     assert body["summary"] == "발표 성공으로 뿌듯한 하루"
-    assert body["dominant_emotion"] == "happy"
+    assert body["dominant_emotion"] == "joy"
     assert emotion_session.get_session("s1") is None
 
 

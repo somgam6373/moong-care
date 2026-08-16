@@ -4,6 +4,7 @@ from services.emotion_session import (
     add_user_turn, add_assistant_turn, get_session,
     compute_average, clear_session, get_last_user_emotion, SESSIONS,
     get_recent_context, get_care_timeline, set_sleep_result, get_sleep_result,
+    get_last_user_care_emotion, compute_dominant_care_emotion,
 )
 
 
@@ -93,6 +94,39 @@ def test_get_last_user_emotion_missing_session_returns_none():
 def test_get_last_user_emotion_no_user_turns_returns_none():
     add_assistant_turn("new-id", "안녕!")
     assert get_last_user_emotion("new-id") is None
+
+
+def test_get_last_user_care_emotion_returns_most_recent_care_label():
+    add_user_turn("s1", "t1", {"happy": 1.0}, care_emotion="joy")
+    add_assistant_turn("s1", "좋았겠다")
+    add_user_turn("s1", "t2", {"fearful": 1.0}, care_emotion="tension")
+
+    assert get_last_user_care_emotion("s1") == "tension"
+
+
+def test_get_last_user_care_emotion_missing_or_no_care_returns_none():
+    assert get_last_user_care_emotion("missing") is None
+    add_user_turn("s1", "t1", {"happy": 1.0})
+    assert get_last_user_care_emotion("s1") is None
+
+
+def test_compute_dominant_care_emotion_uses_care_confidence_scores():
+    add_user_turn("s1", "t1", {"happy": 0.9}, care_emotion="joy", care_confidence=0.6)
+    add_user_turn("s1", "t2", {"sad": 0.9}, care_emotion="fatigue", care_confidence=0.8)
+    add_user_turn("s1", "t3", {"happy": 0.9}, care_emotion="joy", care_confidence=0.1)
+
+    assert compute_dominant_care_emotion("s1") == "fatigue"
+
+
+def test_compute_dominant_care_emotion_falls_back_when_no_care_labels():
+    add_user_turn("s1", "t1", {"happy": 1.0})
+
+    assert compute_dominant_care_emotion("s1") == "calm"
+
+
+def test_compute_dominant_care_emotion_missing_session_raises_keyerror():
+    with pytest.raises(KeyError):
+        compute_dominant_care_emotion("missing")
 
 
 def test_add_user_turn_stores_care_fields():

@@ -22,27 +22,32 @@ class _FakeClient:
 
 
 def test_build_messages_includes_history_and_current_emotion():
-    history = [TurnRecord(role="user", text="안녕", emotions={"happy": 1.0})]
-    messages = chat_service.build_messages(history, "오늘 힘들었어", {"sad": 0.8, "neutral": 0.2})
+    history = [TurnRecord(role="user", text="안녕", emotions={"happy": 1.0}, care_emotion="joy")]
+    messages = chat_service.build_messages(
+        history,
+        "오늘 힘들었어",
+        {"sad": 0.8, "neutral": 0.2},
+        care_emotion="fatigue",
+    )
 
     assert messages[0]["role"] == "system"
-    assert messages[1] == {"role": "user", "content": "[감정: happy] 안녕"}
-    assert "sad" in messages[-1]["content"]
+    assert messages[1] == {"role": "user", "content": "[케어 감정: joy] 안녕"}
+    assert "fatigue" in messages[-1]["content"]
     assert "오늘 힘들었어" in messages[-1]["content"]
 
 
 def test_build_messages_carries_emotion_across_multiple_past_turns():
     history = [
-        TurnRecord(role="user", text="오늘 시험 봤어", emotions={"fearful": 0.9, "neutral": 0.1}),
+        TurnRecord(role="user", text="오늘 시험 봤어", emotions={"fearful": 0.9, "neutral": 0.1}, care_emotion="tension"),
         TurnRecord(role="assistant", text="긴장했겠다", emotions=None),
-        TurnRecord(role="user", text="근데 잘 봤어", emotions={"happy": 0.7, "surprised": 0.3}),
+        TurnRecord(role="user", text="근데 잘 봤어", emotions={"happy": 0.7, "surprised": 0.3}, care_emotion="joy"),
         TurnRecord(role="user", text="그냥 그랬어", emotions=None),
     ]
-    messages = chat_service.build_messages(history, "이제 좀 쉬고 싶어", {"neutral": 1.0})
+    messages = chat_service.build_messages(history, "이제 좀 쉬고 싶어", {"neutral": 1.0}, care_emotion="relief")
 
-    assert messages[1] == {"role": "user", "content": "[감정: fearful] 오늘 시험 봤어"}
+    assert messages[1] == {"role": "user", "content": "[케어 감정: tension] 오늘 시험 봤어"}
     assert messages[2] == {"role": "assistant", "content": "긴장했겠다"}
-    assert messages[3] == {"role": "user", "content": "[감정: happy] 근데 잘 봤어"}
+    assert messages[3] == {"role": "user", "content": "[케어 감정: joy] 근데 잘 봤어"}
     assert messages[4] == {"role": "user", "content": "그냥 그랬어"}
 
 
@@ -50,7 +55,7 @@ def test_get_reply_calls_openai_client_and_returns_text(monkeypatch):
     fake_client = _FakeClient("힘든 하루였겠다, 오늘도 애썼어.")
     monkeypatch.setattr(chat_service, "get_client", lambda: fake_client)
 
-    reply = chat_service.get_reply([], "오늘 힘들었어", {"sad": 0.8})
+    reply = chat_service.get_reply([], "오늘 힘들었어", {"sad": 0.8}, care_emotion="fatigue")
 
     assert reply == "힘든 하루였겠다, 오늘도 애썼어."
     assert fake_client.chat.completions.last_messages[-1]["content"].endswith("오늘 힘들었어")
@@ -77,19 +82,31 @@ def test_get_reply_calls_client_for_short_but_real_transcript(monkeypatch):
 
 
 def test_build_messages_uses_empathetic_prompt_by_default():
-    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8})
+    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8}, care_emotion="fatigue")
 
     assert messages[0]["content"] == chat_service.EMPATHETIC_SYSTEM_PROMPT
 
 
 def test_build_messages_uses_realistic_prompt_when_requested():
-    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8}, style="realistic")
+    messages = chat_service.build_messages(
+        [],
+        "오늘 힘들었어",
+        {"sad": 0.8},
+        style="realistic",
+        care_emotion="fatigue",
+    )
 
     assert messages[0]["content"] == chat_service.REALISTIC_SYSTEM_PROMPT
 
 
 def test_build_messages_falls_back_to_default_for_unknown_style():
-    messages = chat_service.build_messages([], "오늘 힘들었어", {"sad": 0.8}, style="unknown")
+    messages = chat_service.build_messages(
+        [],
+        "오늘 힘들었어",
+        {"sad": 0.8},
+        style="unknown",
+        care_emotion="fatigue",
+    )
 
     assert messages[0]["content"] == chat_service.EMPATHETIC_SYSTEM_PROMPT
 

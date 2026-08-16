@@ -5,6 +5,7 @@ from services.openai_client import get_client
 from config import settings
 
 MIN_TRANSCRIPT_LENGTH = 2
+FALLBACK_CARE_EMOTION = "calm"
 FALLBACK_REPLY = "음... 잘 못 들었어. 다시 한 번 말해줄래?"
 
 EMPATHETIC_SYSTEM_PROMPT = (
@@ -45,20 +46,20 @@ def build_messages(
     transcript: str,
     emotions: dict[str, float],
     style: str = DEFAULT_STYLE,
+    care_emotion: str | None = None,
 ) -> list[dict]:
     system_prompt = SYSTEM_PROMPTS.get(style, SYSTEM_PROMPTS[DEFAULT_STYLE])
     messages = [{"role": "system", "content": system_prompt}]
     for turn in history:
         role = "user" if turn.role == "user" else "assistant"
         content = turn.text
-        if role == "user" and turn.emotions:
-            past_dominant = max(turn.emotions, key=turn.emotions.get)
-            content = f"[감정: {past_dominant}] {content}"
+        if role == "user" and turn.care_emotion:
+            content = f"[케어 감정: {turn.care_emotion}] {content}"
         messages.append({"role": role, "content": content})
-    dominant = max(emotions, key=emotions.get) if emotions else "neutral"
+    current_care_emotion = care_emotion or FALLBACK_CARE_EMOTION
     messages.append({
         "role": "user",
-        "content": f"[현재 감정: {dominant}] {transcript}",
+        "content": f"[현재 케어 감정: {current_care_emotion}] {transcript}",
     })
     return messages
 
@@ -68,11 +69,12 @@ def get_reply(
     transcript: str,
     emotions: dict[str, float],
     style: str = DEFAULT_STYLE,
+    care_emotion: str | None = None,
 ) -> str:
     if len(transcript.strip().strip(string.punctuation)) < MIN_TRANSCRIPT_LENGTH:
         return FALLBACK_REPLY
 
     client = get_client()
-    messages = build_messages(history, transcript, emotions, style)
+    messages = build_messages(history, transcript, emotions, style, care_emotion)
     response = client.chat.completions.create(model=settings.OPENAI_MODEL, messages=messages)
     return response.choices[0].message.content

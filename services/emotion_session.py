@@ -4,6 +4,7 @@ EMOTION_CLASSES = [
     "angry", "disgusted", "fearful", "happy",
     "neutral", "other", "sad", "surprised", "unknown",
 ]
+FALLBACK_CARE_EMOTION = "calm"
 
 
 @dataclass
@@ -83,6 +84,16 @@ def get_last_user_emotion(session_id: str) -> dict[str, float] | None:
     return None
 
 
+def get_last_user_care_emotion(session_id: str) -> str | None:
+    state = SESSIONS.get(session_id)
+    if state is None:
+        return None
+    for turn in reversed(state.turns):
+        if turn.role == "user" and turn.care_emotion is not None:
+            return turn.care_emotion
+    return None
+
+
 def get_recent_context(session_id: str, limit: int = 4) -> list[dict]:
     state = SESSIONS.get(session_id)
     if state is None:
@@ -135,6 +146,24 @@ def compute_average(session_id: str) -> tuple[str, dict[str, float]]:
     average = {cls: state.emotion_sums[cls] / state.turn_count for cls in EMOTION_CLASSES}
     dominant = max(average, key=average.get)
     return dominant, average
+
+
+def compute_dominant_care_emotion(session_id: str) -> str:
+    state = SESSIONS.get(session_id)
+    if state is None or state.turn_count == 0:
+        raise KeyError(session_id)
+
+    scores: dict[str, float] = {}
+    for turn in state.turns:
+        if turn.role != "user" or turn.care_emotion is None:
+            continue
+        scores[turn.care_emotion] = scores.get(turn.care_emotion, 0.0) + (
+            turn.care_confidence if turn.care_confidence is not None else 1.0
+        )
+
+    if not scores:
+        return FALLBACK_CARE_EMOTION
+    return max(scores, key=scores.get)
 
 
 def clear_session(session_id: str) -> None:

@@ -17,14 +17,17 @@ def _format_conversation(history: list[TurnRecord]) -> str:
     return "\n".join(lines)
 
 
-def generate_diary(history: list[TurnRecord], average_emotions: dict[str, float]) -> str:
+def generate_diary(
+    history: list[TurnRecord],
+    average_emotions: dict[str, float],
+    dominant_care_emotion: str,
+) -> str:
     client = get_client()
     conversation = _format_conversation(history)
-    dominant = max(average_emotions, key=average_emotions.get) if average_emotions else "neutral"
     user_prompt = (
         f"오늘의 대화:\n{conversation}\n\n"
-        f"오늘의 대표 감정: {dominant}\n"
-        f"감정 평균 점수: {average_emotions}"
+        f"오늘의 대표 케어 감정: {dominant_care_emotion}\n"
+        f"emotion2vec 평균 점수: {average_emotions}"
     )
     response = client.chat.completions.create(
         model=settings.OPENAI_MODEL,

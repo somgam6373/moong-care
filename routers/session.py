@@ -9,7 +9,8 @@ router = APIRouter(prefix="/api/v1/session", tags=["session"])
 @router.post("/end", response_model=SessionEndResponse)
 async def end(payload: SessionEndRequest, background_tasks: BackgroundTasks):
     try:
-        dominant, average = emotion_session.compute_average(payload.session_id)
+        _, average = emotion_session.compute_average(payload.session_id)
+        dominant = emotion_session.compute_dominant_care_emotion(payload.session_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
 

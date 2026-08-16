@@ -28,6 +28,7 @@ def test_generate_letter_includes_conversation_emotions_and_sleep_color(monkeypa
     letter = letter_service.generate_letter(
         [TurnRecord(role="user", text="발표 때문에 긴장됐어", emotions={"fearful": 0.8})],
         {"fearful": 0.8},
+        "tension",
         [{"care_emotion": "tension", "confidence": 0.7}],
         {"hex": "#C9785A", "brightness": 0.16, "transition_ms": 6000},
     )

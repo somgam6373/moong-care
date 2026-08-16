@@ -34,8 +34,9 @@ def test_voice_analyze_response_roundtrip():
 
 
 def test_chat_reply_models():
-    req = ChatReplyRequest(session_id="s1", transcript="안녕", emotions={"happy": 1.0})
+    req = ChatReplyRequest(session_id="s1", transcript="안녕", emotions={"happy": 1.0}, care_emotion="joy")
     assert req.session_id == "s1"
+    assert req.care_emotion == "joy"
     resp = ChatReplyResponse(reply_text="반가워")
     assert resp.reply_text == "반가워"
 
@@ -54,12 +55,12 @@ def test_tts_request():
 def test_session_end_models():
     req = SessionEndRequest(session_id="s1")
     resp = SessionEndResponse(
-        dominant_emotion="happy",
+        dominant_emotion="joy",
         average_emotions={"happy": 0.9},
         sleep_color=CareColor(hex="#C9785A", brightness=0.16, transition_ms=6000),
     )
     assert req.session_id == "s1"
-    assert resp.dominant_emotion == "happy"
+    assert resp.dominant_emotion == "joy"
     assert resp.sleep_color.hex == "#C9785A"
 
 
