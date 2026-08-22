@@ -30,8 +30,13 @@
 </section>
 
 <section>
-  <h2>2. 대화 응답 (chat/reply)</h2>
-  <button id="chatBtn" disabled>답장 받기</button>
+  <h2>2. 답장 재생성 (선택, chat/reply)</h2>
+  <p style="font-size:12px;color:#777;margin:0 0 8px;">voice/analyze가 reply_text를 이미 반환함 — 다른 스타일로 다시 받고 싶을 때만 사용.</p>
+  <select id="style">
+    <option value="empathetic">empathetic</option>
+    <option value="realistic">realistic</option>
+  </select>
+  <button id="chatBtn" disabled>다른 스타일로 재생성</button>
   <div class="out" id="chatOut">아직 없음</div>
 </section>
 
@@ -103,6 +108,7 @@
     const blob = new Blob(chunks, { type: "audio/webm" });
     const form = new FormData();
     form.append("session_id", sessionId);
+    form.append("style", document.getElementById("style").value);
     form.append("audio", blob, "recording.webm");
 
     const res = await fetch(base() + "/api/v1/voice/analyze", { method: "POST", body: form });
@@ -112,7 +118,9 @@
     if (res.ok) {
       lastTranscript = data.transcript;
       lastEmotions = data.emotions;
+      lastReply = data.reply_text;
       chatBtn.disabled = false;
+      ttsBtn.disabled = false;
       endBtn.disabled = false;
     }
   }
@@ -122,7 +130,12 @@
     const res = await fetch(base() + "/api/v1/chat/reply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, transcript: lastTranscript, emotions: lastEmotions }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        transcript: lastTranscript,
+        emotions: lastEmotions,
+        style: document.getElementById("style").value,
+      }),
     });
     const data = await res.json();
     chatOut.textContent = JSON.stringify(data, null, 2);

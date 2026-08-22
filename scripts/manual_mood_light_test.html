@@ -230,6 +230,7 @@
 
     <section>
       <h2>2. 뭉이 답장 / TTS</h2>
+      <p class="status">voice/analyze가 reply_text를 같이 반환함(감정분류+답변생성 1회 LLM 호출). 아래 스타일은 녹음 시 함께 전송되고, "다른 스타일로 재생성" 버튼으로만 chat/reply를 별도 호출함.</p>
       <label for="style">답장 스타일</label>
       <select id="style">
         <option value="empathetic">empathetic</option>
@@ -245,8 +246,11 @@
         <option value="shimmer">shimmer</option>
       </select>
       <div class="row" style="margin-top: 10px;">
-        <button id="chatBtn" disabled>답장 받기</button>
+        <button id="chatBtn" disabled>다른 스타일로 재생성</button>
         <button id="ttsBtn" disabled>음성 듣기</button>
+      </div>
+      <div class="kv" style="margin-top: 8px;">
+        <div>reply_text</div><div id="replyText">-</div>
       </div>
       <audio id="ttsAudio" controls></audio>
       <pre id="chatOut">대기 중</pre>
@@ -313,6 +317,7 @@
     $("sleepColorText").textContent = "-";
     $("sleepBrightness").textContent = "-";
     $("sleepTransition").textContent = "-";
+    $("replyText").textContent = "-";
     $("letterText").value = "";
     $("rawOut").textContent = "새 세션 생성됨: " + $("sessionId").value;
   }
@@ -406,6 +411,7 @@
       $("recordPreview").src = URL.createObjectURL(blob);
       const form = new FormData();
       form.append("session_id", $("sessionId").value);
+      form.append("style", $("style").value);
       form.append("audio", blob, "recording.webm");
       const data = await requestJson("/api/v1/voice/analyze", {
         method: "POST",
@@ -413,9 +419,12 @@
       });
 
       lastAnalyze = data;
+      lastReply = data.reply_text || "";
       $("analyzeOut").textContent = pretty(data);
       showCare(data);
+      $("replyText").textContent = lastReply || "-";
       $("chatBtn").disabled = false;
+      $("ttsBtn").disabled = !lastReply;
       $("endBtn").disabled = false;
       $("diaryBtn").disabled = false;
       $("recordStatus").textContent = "분석 완료";
@@ -427,7 +436,7 @@
 
   $("chatBtn").addEventListener("click", async () => {
     if (!lastAnalyze) return;
-    $("chatOut").textContent = "chat/reply 요청 중...";
+    $("chatOut").textContent = "chat/reply 요청 중 (재생성)...";
     try {
       const data = await requestJson("/api/v1/chat/reply", {
         method: "POST",
@@ -440,6 +449,7 @@
         }),
       });
       lastReply = data.reply_text;
+      $("replyText").textContent = lastReply || "-";
       $("chatOut").textContent = pretty(data);
       $("ttsBtn").disabled = false;
     } catch (err) {
