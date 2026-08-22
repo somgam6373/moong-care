@@ -18,9 +18,19 @@ CLASSIFIER_SYSTEM_PROMPT = (
     "너는 MoongCare의 실시간 감정 케어 분류기다. "
     "사용자의 발화 텍스트, emotion2vec 전체 점수, pitch 지표, 최근 대화 맥락을 함께 보고 "
     "허용된 care_emotion 중 하나만 고른다. "
-    "emotion2vec의 최고 점수를 그대로 복사하지 말고, 발화 의미와 목소리 상태를 함께 해석해. "
-    "예를 들어 '발표 끝났어', '일이 끝났어'처럼 부담이 끝난 문맥에서 낮은 톤이나 한숨 때문에 sad 점수가 높게 나오면 "
-    "명시적인 슬픔 표현이 없는 한 sadness보다 fatigue 또는 relief를 우선 고려해. "
+    "emotion2vec 최고 점수를 검토 없이 그대로 베끼지는 마. 특히 아래 두 상황에서는 "
+    "raw 점수와 다른 판단을 해야 해.\n"
+    "1) 부담이 끝난 문맥('발표 끝났어', '일이 끝났어' 등)에서 낮은 톤이나 한숨 때문에 "
+    "sad 점수가 높게 나오면, 명시적인 슬픔 표현이 없는 한 sadness보다 fatigue 또는 relief를 "
+    "우선 고려해.\n"
+    "2) 반대로 텍스트가 칭찬/감사처럼 명백히 긍정적인 표현('잘한다', '고맙다', '역시 너답다' 등)인데 "
+    "emotion2vec 점수가 disgusted/angry/sad 같은 부정적 감정으로 강하게(대략 0.5 이상) 쏠려 있으면, "
+    "텍스트를 문자 그대로 믿지 마. 이건 반어법/비꼼이거나 진심이 아닌 칭찬일 가능성이 높다는 신호다. "
+    "이 경우엔 텍스트 의미보다 음성 신호를 더 신뢰해서 anger, stress, confusion, shame_guilt 같은 "
+    "감정을 우선 고려해. 단, disgusted/angry 같은 emotion2vec 라벨 이름은 참고만 하는 거고, "
+    "care_emotion 필드에는 절대 그대로 쓰지 마 — 반드시 allowed_emotions 목록에 있는 단어 "
+    "중 하나만 골라서 써야 해.\n"
+    "이 두 상황 밖에서는 텍스트 의미와 목소리 상태를 균형 있게 함께 해석해. "
     "confidence는 emotion2vec 원점수를 그대로 쓰지 말고, 종합 판단의 확신도로 정해. "
     "색상은 만들지 않는다. 반드시 JSON만 반환한다."
 )
@@ -147,7 +157,10 @@ def _parse_response(content: str, include_reply: bool = False) -> CareEmotionRes
 
     care_emotion = data.get("care_emotion")
     if care_emotion not in ALLOWED_CARE_EMOTIONS:
-        return _fallback("classifier returned unsupported care_emotion", reply_text=fallback_reply)
+        return _fallback(
+            f"classifier returned unsupported care_emotion: {care_emotion!r}",
+            reply_text=fallback_reply,
+        )
 
     try:
         confidence = float(data.get("confidence", 0.0))
@@ -219,6 +232,10 @@ def _combined_system_prompt(style: str) -> str:
     return (
         f"{persona_prompt}\n\n{CLASSIFIER_SYSTEM_PROMPT}\n\n"
         "위 두 역할(공감 캐릭터로서 답변 생성 + 감정 케어 분류)을 동시에 수행해. "
+        "reply_text는 반드시 네가 고른 care_emotion과 같은 해석을 따라야 해 — "
+        "겉으로는 칭찬처럼 들려도 care_emotion을 부정적으로(anger/stress/confusion/shame_guilt 등) "
+        "판단했다면, reply_text도 문자 그대로 감사 인사를 하지 말고 그 판단에 맞게 "
+        "조심스럽게 서운함이나 진심을 확인하는 톤으로 반응해. "
         "반드시 JSON 하나만 반환하고, care_emotion/confidence/reason/reply_text 네 필드를 모두 포함해."
     )
 
