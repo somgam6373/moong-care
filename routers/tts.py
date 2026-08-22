@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Response
-from fastapi.concurrency import run_in_threadpool
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from config import settings
 from models.tts import TTSRequest
@@ -15,5 +15,5 @@ async def synthesize(payload: TTSRequest):
         raise HTTPException(status_code=400, detail=f"unsupported voice: {voice}")
 
     instructions = tts_service.resolve_instructions(payload.session_id)
-    audio_bytes = await run_in_threadpool(tts_service.synthesize, payload.text, voice, instructions)
-    return Response(content=audio_bytes, media_type="audio/wav")
+    audio_stream = tts_service.synthesize_stream(payload.text, voice, instructions)
+    return StreamingResponse(audio_stream, media_type="audio/wav")

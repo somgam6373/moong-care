@@ -44,33 +44,43 @@ def test_resolve_instructions_falls_back_to_neutral_when_no_user_turn_yet():
     assert tts_service.resolve_instructions("s1") == tts_service.EMOTION_INSTRUCTIONS["neutral"]
 
 
-class _FakeSpeechResponse:
-    def read(self):
-        return b"RIFF....WAVEfmt "
+class _FakeStreamedResponse:
+    def __init__(self, chunks):
+        self._chunks = chunks
+
+    def iter_bytes(self):
+        yield from self._chunks
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
 
 
-class _FakeSpeech:
-    def __init__(self):
+class _FakeStreamingSpeech:
+    def __init__(self, chunks):
         self.last_call = None
+        self._chunks = chunks
 
     def create(self, model, voice, input, instructions):
         self.last_call = {"model": model, "voice": voice, "input": input, "instructions": instructions}
-        return _FakeSpeechResponse()
+        return _FakeStreamedResponse(self._chunks)
 
 
 class _FakeClient:
-    def __init__(self):
-        self.audio = SimpleNamespace(speech=_FakeSpeech())
+    def __init__(self, chunks=(b"RIFF", b"....WAVEfmt ")):
+        self.audio = SimpleNamespace(speech=SimpleNamespace(with_streaming_response=_FakeStreamingSpeech(chunks)))
 
 
-def test_synthesize_calls_openai_with_expected_params_and_returns_bytes(monkeypatch):
-    fake_client = _FakeClient()
+def test_synthesize_stream_calls_openai_with_expected_params_and_yields_chunks(monkeypatch):
+    fake_client = _FakeClient(chunks=(b"RIFF", b"....WAVEfmt "))
     monkeypatch.setattr(tts_service, "get_client", lambda: fake_client)
 
-    audio_bytes = tts_service.synthesize("안녕하세요", "nova", "Speak warmly.")
+    chunks = list(tts_service.synthesize_stream("안녕하세요", "nova", "Speak warmly."))
 
-    assert audio_bytes == b"RIFF....WAVEfmt "
-    assert fake_client.audio.speech.last_call == {
+    assert chunks == [b"RIFF", b"....WAVEfmt "]
+    assert fake_client.audio.speech.with_streaming_response.last_call == {
         "model": "gpt-4o-mini-tts",
         "voice": "nova",
         "input": "안녕하세요",

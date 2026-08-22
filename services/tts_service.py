@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from services.emotion_session import get_last_user_emotion
 from services.openai_client import get_client
 
@@ -24,12 +26,12 @@ def resolve_instructions(session_id: str | None) -> str:
     return EMOTION_INSTRUCTIONS.get(dominant, EMOTION_INSTRUCTIONS["neutral"])
 
 
-def synthesize(text: str, voice: str, instructions: str) -> bytes:
+def synthesize_stream(text: str, voice: str, instructions: str) -> Iterator[bytes]:
     client = get_client()
-    response = client.audio.speech.create(
+    with client.audio.speech.with_streaming_response.create(
         model=TTS_MODEL,
         voice=voice,
         input=text,
         instructions=instructions,
-    )
-    return response.read()
+    ) as response:
+        yield from response.iter_bytes()
