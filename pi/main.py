@@ -1,11 +1,18 @@
 """moong-care 라즈베리파이 클라이언트 — 상태머신.
 
-    [READY]  --버튼--> [RECORDING] --버튼(or 30초)--> [PROCESSING]
-                                                          |
-                                              POST /api/v1/care/turn (wav 1개)
-                                              서버가 STT+감정분류+답변+TTS 처리
-                                                          v
-                                                     [SPEAKING] --재생끝--> [READY]
+    [READY]  --짧게 누름--> [RECORDING] --짧게 누름(or 30초)--> [PROCESSING]
+       ^                                                            |
+       |                                                POST /api/v1/care/turn (wav 1개)
+       |                                                서버가 STT+감정분류+답변+TTS 처리
+       |                                                            v
+       |                                                       [SPEAKING] --재생끝--> [READY]
+       |
+       +--꾹 누름(1.2초+)--> [SLEEPING] --아무 버튼--+
+                POST /api/v1/session/end                (새 세션으로 복귀)
+                오늘 대표 케어감정 -> 수면색, 자장가 반복 재생
+
+버튼 하나로 두 가지를 구분합니다: 짧게 눌렀다 떼면 대화, 꾹 눌렀다 떼면 취침.
+그래서 눌림/뗌 이벤트에서 유지 시간을 재고, "짧음/길음"을 뗄 때 큐에 넣습니다.
 
 실행:  sudo -E python3 main.py        (rpi_ws281x 가 root 권한을 요구합니다)
 """
@@ -16,12 +23,13 @@ import queue
 import signal
 import sys
 import time
+import uuid
 
 from gpiozero import Button
 
 import config
 import server_client as api
-from audio_io import Recorder, play_wav
+from audio_io import LullabyPlayer, Recorder, play_wav
 from led_controller import LedController
 
 
@@ -34,11 +42,27 @@ class MoongCare:
             pull_up=True,
             bounce_time=config.BUTTON_BOUNCE_S,
         )
-        self.presses: queue.Queue[float] = queue.Queue()
-        self.button.when_pressed = lambda: self.presses.put(time.monotonic())
+        # 큐에는 "short"(짧게 눌렀다 뗌) / "long"(꾹 눌렀다 뗌) 문자열이 들어온다.
+        # 판정은 뗄 때(when_released) 눌려있던 시간으로 한다.
+        self.presses: queue.Queue[str] = queue.Queue()
+        self._press_started: float | None = None
+        self.button.when_pressed = self._on_press
+        self.button.when_released = self._on_release
 
         self.state = "ready"
+        self.session_id = config.SESSION_ID
         self._running = True
+
+    # --------------------------------------------------------------- 버튼
+    def _on_press(self) -> None:
+        self._press_started = time.monotonic()
+
+    def _on_release(self) -> None:
+        if self._press_started is None:
+            return
+        held = time.monotonic() - self._press_started
+        self._press_started = None
+        self.presses.put("long" if held >= config.LONG_PRESS_S else "short")
 
     # ------------------------------------------------------------------
     def run(self) -> None:
@@ -55,9 +79,12 @@ class MoongCare:
 
         while self._running:
             try:
-                self._wait_press()          # READY 에서 버튼 대기
-                if not self._running:
+                press = self._wait_press()  # READY 에서 버튼 대기
+                if not self._running or press is None:
                     break
+                if press == "long":
+                    self._sleep_cycle()     # SLEEPING (자장가) -> 새 세션으로 복귀
+                    continue
                 wav, duration = self._record()   # RECORDING
                 if duration < config.MIN_RECORD_S:
                     print(f"[skip] 너무 짧음 ({duration:.1f}s)")
@@ -88,13 +115,14 @@ class MoongCare:
         while not self.presses.empty():
             self.presses.get_nowait()
 
-    def _wait_press(self) -> None:
+    def _wait_press(self) -> str | None:
+        """READY 에서 버튼 대기. "short"/"long" 을 돌려주거나, 종료 중이면 None."""
         while self._running:
             try:
-                self.presses.get(timeout=0.2)
-                return
+                return self.presses.get(timeout=0.2)
             except queue.Empty:
                 continue
+        return None
 
     def _record(self) -> tuple[str, float]:
         self.state = "recording"
@@ -125,7 +153,7 @@ class MoongCare:
 
         # 서버가 STT + 9->14 감정분류(GPT) + 답변생성 + TTS 를 전부 처리하고
         # 한 번의 응답으로 돌려준다. 폴링 없음 — 이 호출이 끝날 때까지 기다리면 끝.
-        result = api.care_turn(wav, config.REPLY_PATH)
+        result = api.care_turn(wav, config.REPLY_PATH, session_id=self.session_id)
 
         print(f'  전사: "{result.transcript}"')
         print(
@@ -140,6 +168,40 @@ class MoongCare:
         self.state = "speaking"
         self.led.set_care_color(result.care_color)
         play_wav(result.audio_path)
+
+    def _sleep_cycle(self) -> None:
+        """꾹 눌러서 대화 종료 -> 자장가. 아무 버튼이나 누르면 새 세션으로 깨어난다."""
+        self.state = "sleeping"
+        print("● 대화 종료, 자장가 모드")
+
+        try:
+            sleep_color = api.end_session(self.session_id)
+            print(f"  오늘의 색: {sleep_color['hex']}")
+        except api.ServerError as e:
+            print(f"[server error] session/end 실패, 기본색 사용: {e}")
+            sleep_color = config.DEFAULT_SLEEP_COLOR
+
+        self.led.set_sleep_color(sleep_color)
+        self._drain_presses()
+
+        player = LullabyPlayer(config.LULLABY_PATH)
+        player.start()
+        try:
+            while self._running:
+                try:
+                    self.presses.get(timeout=0.2)
+                    break  # short든 long이든 상관없이 아무 버튼이나 누르면 깨어남
+                except queue.Empty:
+                    continue
+        finally:
+            player.stop()
+
+        if self._running:
+            self.session_id = self._new_session_id()
+            print(f"● 기상. 새 대화 시작 (session_id={self.session_id})")
+
+    def _new_session_id(self) -> str:
+        return f"{config.SESSION_ID}-{uuid.uuid4().hex[:6]}"
 
     # ------------------------------------------------------------------
     def shutdown(self, *_args) -> None:

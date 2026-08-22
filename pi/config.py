@@ -58,3 +58,17 @@ MAX_RECORD_S = 30.0     # 버튼을 안 눌러도 이 시간이 지나면 자동
 
 RECORD_PATH = "/tmp/moong_input.wav"
 REPLY_PATH = "/tmp/moong_reply.wav"
+
+# ---------------------------------------------------------------- 자장가 / 취침
+# 이 이상 누르고 있으면(짧은 tap이 아니라 꾹 누르기) 대화를 끝내고 자장가 모드로 들어간다.
+LONG_PRESS_S = float(_env("MOONG_LONG_PRESS_S", "1.2"))
+
+# /api/v1/session/end 호출 타임아웃. (연결, 응답) 초 단위
+TIMEOUT_SESSION_END = (5, 15)
+
+# 자장가 파일. mp3 등 다른 포맷이면 aplay가 못 읽으므로 wav로 미리 변환해서 넣어야 한다.
+#   ffmpeg -i lullaby.mp3 -ar 44100 -ac 2 pi/media/lullaby.wav
+LULLABY_PATH = _env("MOONG_LULLABY", os.path.join(_PI_DIR, "media", "lullaby.wav"))
+
+# 자장가 모드 진입 시 /session/end 호출이 실패하면 이 색으로 대체한다 (warm_dim과 동일).
+DEFAULT_SLEEP_COLOR = {"hex": "#C9785A", "brightness": 0.16, "transition_ms": 6000}

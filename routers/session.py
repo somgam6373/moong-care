@@ -14,8 +14,7 @@ async def end(payload: SessionEndRequest, background_tasks: BackgroundTasks):
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
 
-    care_timeline = emotion_session.get_care_timeline(payload.session_id)
-    sleep_profile = sleep_color_service.choose_sleep_profile(care_timeline)
+    sleep_profile = sleep_color_service.sleep_profile_for_emotion(dominant)
     sleep_color = color_care_service.get_sleep_color(sleep_profile)
     sleep_color_dict = sleep_color.model_dump()
     emotion_session.set_sleep_result(payload.session_id, sleep_profile, sleep_color_dict)

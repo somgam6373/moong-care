@@ -104,7 +104,12 @@ async def turn(
         t = time.monotonic()
         session = emotion_session.get_session(session_id)
         reply_text = await run_in_threadpool(
-            chat_service.get_reply, session.turns, transcript, emotions, style
+            chat_service.get_reply,
+            session.turns,
+            transcript,
+            emotions,
+            style,
+            care_result.care_emotion,
         )
         emotion_session.add_assistant_turn(session_id, reply_text)
         _mark("reply", t)

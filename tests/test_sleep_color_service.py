@@ -1,4 +1,20 @@
-from services.sleep_color_service import choose_sleep_profile
+from services.sleep_color_service import choose_sleep_profile, sleep_profile_for_emotion
+
+
+def test_sleep_profile_for_emotion_high_arousal():
+    assert sleep_profile_for_emotion("anxiety") == "deep_amber"
+
+
+def test_sleep_profile_for_emotion_low_energy():
+    assert sleep_profile_for_emotion("fatigue") == "soft_peach"
+
+
+def test_sleep_profile_for_emotion_relationship():
+    assert sleep_profile_for_emotion("shame_guilt") == "low_rose"
+
+
+def test_sleep_profile_for_emotion_defaults_to_warm_dim():
+    assert sleep_profile_for_emotion("joy") == "warm_dim"
 
 
 def test_choose_sleep_profile_defaults_to_warm_dim_for_empty_timeline():

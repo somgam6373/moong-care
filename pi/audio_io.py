@@ -100,6 +100,48 @@ def play_wav(path: str) -> None:
         raise RuntimeError(f"aplay 실패: {result.stderr.decode(errors='ignore')}")
 
 
+class LullabyPlayer:
+    """자장가를 버튼이 눌릴 때까지 반복 재생.
+
+    aplay는 한 곡이 끝나면 그냥 종료되므로, 별도 스레드에서 stop() 이 불릴 때까지
+    같은 파일을 계속 다시 튼다. main.py 의 버튼 대기 루프는 이 스레드와 무관하게
+    계속 돌기 때문에 재생 중에도 버튼 입력을 즉시 감지할 수 있다.
+    """
+
+    def __init__(self, path: str) -> None:
+        self._path = path
+        self._stop = threading.Event()
+        self._proc: subprocess.Popen | None = None
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        cmd = ["aplay", "-q"]
+        if config.OUTPUT_DEVICE:
+            cmd += ["-D", config.OUTPUT_DEVICE]
+        cmd.append(self._path)
+        while not self._stop.is_set():
+            try:
+                self._proc = subprocess.Popen(cmd)
+            except FileNotFoundError:
+                print(f"[audio] 자장가 파일을 못 찾음: {self._path}")
+                return
+            self._proc.wait()
+            self._proc = None
+            # 곡이 끝까지 자연 재생되면 stop() 이 불릴 때까지 처음부터 반복한다.
+
+    def stop(self) -> None:
+        """즉시 중단. 재생 중인 aplay 프로세스를 죽이고 스레드가 끝나길 기다린다."""
+        self._stop.set()
+        if self._proc is not None:
+            self._proc.terminate()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+
+
 def list_devices() -> str:
     return str(sd.query_devices())
 

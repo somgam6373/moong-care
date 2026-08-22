@@ -15,6 +15,7 @@
     recording   녹음 중        : 전체 밝기가 목소리 크기를 그대로 따라감 (앰버~주황빨강)
     processing  계산 중        : 무지개 전체가 0.55초에 한 바퀴, 밝기 파동과 함께 빠르게
     speaking    답변 중        : care_color 로 회전 없이 제자리 호흡 (표의 14색 중 하나)
+    sleeping    자장가 재생 중  : sleep_color 로 회전 없이 아주 느리게 호흡 (수면 4색 중 하나)
     error       오류           : 빨강 ↔ 흰색 교차 깜빡임
 """
 
@@ -254,6 +255,19 @@ class LedController:
             transition_ms=int(care_color.get("transition_ms", 1600)),
         )
 
+    def set_sleep_color(self, sleep_color: dict) -> None:
+        """/session/end 응답의 sleep_color 그대로 넘기면 자장가용 색으로 전환합니다.
+        sleep_color = {"hex": "#C9785A", "brightness": 0.16, "transition_ms": 6000}
+        렌더링 자체는 speaking과 동일(회전 없는 제자리 호흡)하지만, 수면색은
+        transition_ms 가 훨씬 커서(6~8초) 호흡이 눈에 띄게 느리고 은은하다.
+        """
+        self.set_state(
+            "sleeping",
+            hex=sleep_color["hex"],
+            brightness=float(sleep_color.get("brightness", 0.15)),
+            transition_ms=int(sleep_color.get("transition_ms", 7000)),
+        )
+
     def close(self) -> None:
         self._stop.set()
         self._thread.join(timeout=1.0)
@@ -287,6 +301,8 @@ class LedController:
             return self._processing(t)
         if state == "speaking":
             return self._speaking(params, t)
+        if state == "sleeping":
+            return self._speaking(params, t)  # 렌더링 식은 동일, transition_ms만 훨씬 큼
         if state == "error":
             return self._error(t)
         if state == "off":

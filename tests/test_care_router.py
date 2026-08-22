@@ -32,7 +32,11 @@ def _patch_happy_path(monkeypatch, *, transcript="오늘 발표가 잘 됐어요
             fallback=fallback,
         ),
     )
-    monkeypatch.setattr(care_router.chat_service, "get_reply", lambda history, t, e, style: "우와 정말 잘됐다!")
+    monkeypatch.setattr(
+        care_router.chat_service,
+        "get_reply",
+        lambda history, t, e, style, care_emotion=None: "우와 정말 잘됐다!",
+    )
     monkeypatch.setattr(care_router.tts_service, "resolve_instructions", lambda session_id: "warm")
     monkeypatch.setattr(care_router.tts_service, "synthesize", lambda text, voice, instructions: b"FAKE-WAV-BYTES")
 
@@ -89,6 +93,27 @@ def test_turn_records_session_turns(monkeypatch, tmp_path):
     assert session.turns[0].care_emotion == "joy"
     assert session.turns[1].role == "assistant"
     assert session.turns[1].text == "우와 정말 잘됐다!"
+
+
+def test_turn_passes_care_emotion_to_chat_service(monkeypatch, tmp_path):
+    """방금 분류한 케어 감정이 답변 생성 프롬프트까지 전달되는지 확인한다."""
+    emotion_session.SESSIONS.clear()
+    monkeypatch.setattr(care_router, "TEMP_DIR", str(tmp_path))
+    monkeypatch.setattr(care_router, "ensure_wav_16k_mono", lambda inp, out: inp)
+    _patch_happy_path(monkeypatch)
+
+    captured = {}
+
+    def fake_get_reply(history, transcript, emotions, style, care_emotion=None):
+        captured["care_emotion"] = care_emotion
+        return "우와 정말 잘됐다!"
+
+    monkeypatch.setattr(care_router.chat_service, "get_reply", fake_get_reply)
+
+    client = TestClient(_build_app())
+    _post(client, session_id="s6")
+
+    assert captured["care_emotion"] == "joy"
 
 
 def test_turn_reports_fallback_header_when_classifier_falls_back(monkeypatch, tmp_path):

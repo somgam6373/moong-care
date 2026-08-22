@@ -1,8 +1,11 @@
 """moong-care FastAPI 서버 호출.
 
-파이가 거는 POST 는 이제 딱 하나, /api/v1/care/turn 뿐입니다.
-STT, 9->14 감정 분류(GPT), 답변 생성, TTS 를 서버가 한 번에 처리하고
-결과를 그 응답으로 바로 돌려줍니다. 폴링이 필요 없습니다.
+파이가 거는 POST 는 두 개입니다.
+
+- /api/v1/care/turn   매 턴마다: STT, 9->14 감정 분류(GPT), 답변 생성, TTS 를
+  서버가 한 번에 처리하고 결과를 그 응답으로 바로 돌려줍니다. 폴링이 필요 없습니다.
+- /api/v1/session/end 버튼을 꾹 눌러 대화를 끝낼 때 1번: 오늘 대화의 대표 케어
+  감정에 대응하는 수면색을 받아 자장가 재생 중 LED에 씁니다.
 
 응답은 답변 wav(본문) + 감정/색/전사(헤더) 로 옵니다. 헤더는 HTTP 규격상
 latin-1만 허용되므로, 한글이 들어가는 값(라벨/전사/답변텍스트)은 서버가
@@ -90,6 +93,18 @@ def care_turn(
         reply_text=_unquote(h, "x-reply-text"),
         timing=_parse_timing(h.get("x-timing", "")),
     )
+
+
+def end_session(session_id: str) -> dict:
+    """POST /api/v1/session/end. 오늘 대화의 대표 케어 감정에 대응하는 수면색을 받는다.
+
+    반환값은 care_turn()의 care_color와 같은 모양: {"hex":..., "brightness":..., "transition_ms":...}
+    """
+    url = f"{config.SERVER_BASE}/api/v1/session/end"
+    r = requests.post(url, json={"session_id": session_id}, timeout=config.TIMEOUT_SESSION_END)
+    if r.status_code != 200:
+        raise ServerError(f"session/end {r.status_code}: {r.text[:300]}")
+    return r.json()["sleep_color"]
 
 
 def health() -> bool:

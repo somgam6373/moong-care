@@ -9,12 +9,20 @@
 ## 흐름
 
 ```
-READY ──버튼──▶ RECORDING ──버튼(or 30초)──▶ PROCESSING ──▶ SPEAKING ──재생끝──▶ READY
+READY ──짧게──▶ RECORDING ──짧게(or 30초)──▶ PROCESSING ──▶ SPEAKING ──재생끝──▶ READY
 무지개 회전       음량 연동 밝기               무지개 빠른 회전    care_color 호흡
 (8초/바퀴)                                  (0.55초/바퀴)      (표의 14색)
+
+READY(또는 대화 중 아무 때나) ──꾹 누름(1.2초+)──▶ SLEEPING ──아무 버튼──▶ READY(새 세션)
+                                    수면색 호흡 + 자장가 반복 재생
 ```
 
-## 서버 API — 딱 하나
+버튼 하나로 "짧게"와 "꾹"을 구분합니다. 뗄 때(release) 눌려있던 시간을 재서
+`MOONG_LONG_PRESS_S`(기본 1.2초) 이상이면 취침, 아니면 평소 대화 버튼입니다.
+자장가 재생 중에는 짧게든 꾹이든 아무 버튼이나 누르면 바로 깨어나 **새 session_id**로
+대화를 다시 시작합니다 (지난 대화 맥락과 섞이지 않도록).
+
+## 서버 API — 두 개
 
 ```
 POST /api/v1/care/turn
@@ -36,6 +44,16 @@ POST /api/v1/care/turn
 **폴링은 필요 없습니다.** `requests.post()` 가 서버 처리가 끝날 때까지 기다렸다가
 결과를 리턴값으로 주기 때문입니다. 파이에 서버를 띄울 필요도 없습니다.
 
+```
+POST /api/v1/session/end
+```
+
+버튼을 꾹 눌러 대화를 끝낼 때 1번 호출합니다. `{"session_id": "..."}` 를 보내면
+그 세션 동안 나온 케어 감정 중 **confidence로 가중 합산해서 가장 점수가 높았던 감정
+하나**에 대응하는 수면색(`sleep_color`)을 돌려줍니다 (`services/sleep_color_service.py`
+의 `warm_dim` / `deep_amber` / `soft_peach` / `low_rose` 4색 중 하나, 실시간 14색보다
+훨씬 어둡고 전환이 느림). 이 색을 자장가 재생 중 LED에 씁니다.
+
 ## care_emotion 매핑
 
 **파이는 이 로직을 갖고 있지 않습니다.** 9개 → 14개 변환은 서버의
@@ -53,9 +71,10 @@ pi/
 │   ├── led_bridge.c    상주 C 프로세스. libws2811.a(pi5 브랜치)를 직접 링크
 │   └── build.sh        빌드 스크립트 (인자나 WS281X_DIR 로 클론 경로 지정)
 ├── led_setup.sh        RP1 PWM 커널모듈+dtoverlay+pinctl (led_controller.py가 자동 호출)
-├── server_client.py    /care/turn 호출 1개 + 헤더 파싱/한글 디코딩
-├── audio_io.py         sounddevice 녹음(+음량) / aplay 재생
-├── config.py            서버주소 · 핀번호 · 타임아웃 · led_bridge 경로
+├── server_client.py    /care/turn, /session/end 호출 + 헤더 파싱/한글 디코딩
+├── audio_io.py         sounddevice 녹음(+음량) / aplay 재생 / 자장가 반복 재생(LullabyPlayer)
+├── media/lullaby.wav   자장가 음원 (직접 넣어야 함, 아래 "자장가" 섹션 참고)
+├── config.py            서버주소 · 핀번호 · 타임아웃 · led_bridge 경로 · 자장가 경로
 ├── led-preview.html    LED 색·애니메이션 브라우저 미리보기 (실제 계산식과 동일)
 ├── PLAN.md              전체 설계 문서 (파이프라인 · API · LED 근거)
 └── requirements.txt
@@ -155,6 +174,23 @@ C 브릿지가 하드웨어 레지스터를 직접 씁니다. `sudo -E` 를 빼�
 감정 14색(파스텔, 답변할 때 씀)은 파이에 없습니다 — 서버 `color_care_service.py`
 에서 고치세요.
 
+## 자장가
+
+버튼을 1.2초 이상 꾹 누르면 대화가 끝나고 자장가 모드로 들어갑니다. 파일은
+직접 구해서 `pi/media/lullaby.wav` 에 넣어야 합니다 (저작권 없는 음원 또는
+직접 준비한 음원 — 클래식처럼 잔잔한 곡 추천). `aplay`는 wav만 재생하므로
+mp3 등 다른 포맷이면 미리 변환하세요.
+
+```bash
+ffmpeg -i lullaby.mp3 -ar 44100 -ac 2 pi/media/lullaby.wav
+```
+
+- 곡이 끝까지 재생되면 버튼을 누를 때까지 처음부터 반복됩니다.
+- 짧게든 꾹이든 아무 버튼이나 누르면 즉시 멈추고, **새 session_id**로 대화가 다시
+  시작됩니다 (자기 전 대화 맥락이 다음 대화에 섞이지 않도록).
+- LED는 `/session/end` 가 준 수면색으로 아주 느리게(6~8초 주기) 호흡합니다.
+- 파일 경로나 길게 누르는 기준 시간은 환경변수로 바꿀 수 있습니다.
+
 ## 환경변수
 
 | 변수 | 기본값 |
@@ -164,6 +200,8 @@ C 브릿지가 하드웨어 레지스터를 직접 씁니다. `sudo -E` 를 빼�
 | `MOONG_STYLE` | `empathetic` (또는 `realistic`) |
 | `MOONG_VOICE` | `nova` |
 | `MOONG_BUTTON_PIN` | `17` |
+| `MOONG_LULLABY` | `pi/media/lullaby.wav` |
+| `MOONG_LONG_PRESS_S` | `1.2` (이 이상 누르고 있어야 취침으로 인식) |
 | `MOONG_INPUT_DEVICE` / `MOONG_OUTPUT_DEVICE` | 시스템 기본 |
 
 ## 자동 시작 (선택)
@@ -203,4 +241,6 @@ journalctl -u moongcare -f
 | `/care/turn` 이 500 | 서버 PC에 ffmpeg 없음, 또는 GPT 호출 실패 (`.env`의 `OPENAI_API_KEY` 확인) |
 | 연결 안 됨 | PC 방화벽에서 8000 인바운드 허용 필요 |
 | 전사가 빈 문자열 | 마이크 게인 부족 → `alsamixer`에서 Capture 올리기 |
+| 자장가가 안 나옴 / `[audio] 자장가 파일을 못 찾음` | `pi/media/lullaby.wav` 가 없음 → 파일을 넣거나 `MOONG_LULLABY` 로 경로 지정 |
+| 꾹 눌렀는데 대화(RECORDING)로 들어감 | `MOONG_LONG_PRESS_S`(기본 1.2초)보다 짧게 눌렀다 뗌 → 더 오래 누르기 |
 | 응답이 너무 느림 | 서버 로그의 `X-Timing` 헤더로 어느 단계가 오래 걸리는지 확인 |
