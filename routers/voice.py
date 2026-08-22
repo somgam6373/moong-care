@@ -76,7 +76,8 @@ async def analyze(
         dominant = max(emotions, key=emotions.get) if emotions else "neutral"
         print(
             f'[voice] 인식된 말: "{transcript}" | raw 감정: {dominant} '
-            f'({emotions.get(dominant, 0):.2f}) | care 감정: {care_result.care_emotion}'
+            f'({emotions.get(dominant, 0):.2f}) | care 감정: {care_result.care_emotion} '
+            f'| reason: {care_result.reason}'
         )
 
         return VoiceAnalyzeResponse(
