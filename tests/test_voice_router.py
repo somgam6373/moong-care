@@ -25,13 +25,14 @@ def test_analyze_endpoint_returns_transcript_emotions_and_pitch(monkeypatch):
     monkeypatch.setattr(voice_router.voice_service, "analyze_voice", fake_analyze_voice)
     monkeypatch.setattr(
         voice_router.emotion_classifier_service,
-        "classify_realtime_emotion",
-        lambda transcript, emotions, pitch_mean, pitch_std, recent_context: SimpleNamespace(
+        "classify_and_reply",
+        lambda transcript, emotions, pitch_mean, pitch_std, history, style: SimpleNamespace(
             care_emotion="joy",
             care_emotion_label="기쁨/만족",
             confidence=0.82,
             reason="발표 성공",
             fallback=False,
+            reply_text="발표 잘 끝났다니 다행이다!",
         ),
     )
     monkeypatch.setattr(voice_router.mood_light_client, "push_color", lambda payload: pushed_payloads.append(payload))
@@ -53,9 +54,12 @@ def test_analyze_endpoint_returns_transcript_emotions_and_pitch(monkeypatch):
     assert body["care_emotion_label"] == "기쁨/만족"
     assert body["care_confidence"] == 0.82
     assert body["care_color"] == {"hex": "#F6C66D", "brightness": 0.5, "transition_ms": 1200}
+    assert body["reply_text"] == "발표 잘 끝났다니 다행이다!"
     session = emotion_session.get_session("s1")
     assert session.turn_count == 1
     assert session.turns[0].care_emotion == "joy"
+    assert session.turns[1].role == "assistant"
+    assert session.turns[1].text == "발표 잘 끝났다니 다행이다!"
     assert pushed_payloads == [
         {
             "mode": "realtime",

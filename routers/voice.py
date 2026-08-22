@@ -6,6 +6,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from models.voice import VoiceAnalyzeResponse
 from services import (
+    chat_service,
     color_care_service,
     emotion_classifier_service,
     emotion_session,
@@ -24,6 +25,7 @@ async def analyze(
     request: Request,
     background_tasks: BackgroundTasks,
     session_id: str = Form(...),
+    style: str = Form(chat_service.DEFAULT_STYLE),
     audio: UploadFile = None,
 ):
     file_id = uuid.uuid4().hex
@@ -36,14 +38,16 @@ async def analyze(
     try:
         webm_to_wav(webm_path, wav_path)
         transcript, emotions, pitch_mean, pitch_std = await voice_service.analyze_voice(request.app.state, wav_path)
-        recent_context = emotion_session.get_recent_context(session_id)
+        session = emotion_session.get_session(session_id)
+        history = session.turns if session else []
         care_result = await run_in_threadpool(
-            emotion_classifier_service.classify_realtime_emotion,
+            emotion_classifier_service.classify_and_reply,
             transcript,
             emotions,
             pitch_mean,
             pitch_std,
-            recent_context,
+            history,
+            style,
         )
         care_color = color_care_service.get_realtime_color(care_result.care_emotion)
         care_color_dict = care_color.model_dump()
@@ -58,6 +62,7 @@ async def analyze(
             care_confidence=care_result.confidence,
             care_color=care_color_dict,
         )
+        emotion_session.add_assistant_turn(session_id, care_result.reply_text)
 
         background_tasks.add_task(
             mood_light_client.push_color,
@@ -83,6 +88,7 @@ async def analyze(
             care_emotion_label=care_result.care_emotion_label,
             care_confidence=care_result.confidence,
             care_color=care_color,
+            reply_text=care_result.reply_text,
         )
     finally:
         for path in (webm_path, wav_path):

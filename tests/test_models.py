@@ -20,6 +20,7 @@ def test_voice_analyze_response_roundtrip():
         care_emotion_label="긴장",
         care_confidence=0.74,
         care_color=care_color,
+        reply_text="긴장되겠다, 잘할 수 있어.",
     )
     assert resp.model_dump() == {
         "transcript": "안녕",
@@ -30,6 +31,7 @@ def test_voice_analyze_response_roundtrip():
         "care_emotion_label": "긴장",
         "care_confidence": 0.74,
         "care_color": {"hex": "#7DCAC3", "brightness": 0.38, "transition_ms": 1800},
+        "reply_text": "긴장되겠다, 잘할 수 있어.",
     }
 
 

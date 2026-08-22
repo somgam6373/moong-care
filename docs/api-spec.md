@@ -35,13 +35,16 @@ Base URL: `http://<host>:8000`
 
 ### `POST /api/v1/voice/analyze`
 
-음성 파일 업로드 → STT 변환, 감정 인식(SER), care 감정 분류, mood-light 색상 push까지 한 번에 처리. 세션 turn에도 자동 기록됨. `emotions`는 emotion2vec 점수 분포이고, 실제 서비스 판단에 쓰는 감정 라벨은 `care_emotion`이다.
+음성 파일 업로드 → STT 변환, 감정 인식(SER), care 감정 분류 + AI 응답 생성(단일 LLM 호출), mood-light 색상 push까지 한 번에 처리. 세션 turn(user+assistant)에도 자동 기록됨. `emotions`는 emotion2vec 점수 분포이고, 실제 서비스 판단에 쓰는 감정 라벨은 `care_emotion`이다.
+
+> **2026-08-22 변경**: 기존엔 이 엔드포인트가 감정분류만 하고, 텍스트 응답은 별도 `POST /api/v1/chat/reply` 호출로 받아야 했음(LLM 호출 2회, 왕복 2회). 지금은 감정분류+응답생성을 한 번의 LLM 호출로 합쳐서 `reply_text`를 이 응답에 바로 포함함 — 정상 플로우에서는 `chat/reply`를 더 호출할 필요 없음. **프론트 연동 변경 필요**: 녹음 직후 이 응답의 `reply_text`를 바로 써서 TTS 요청하면 됨.
 
 **Request** `multipart/form-data`
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `session_id` | string (form) | Y | 세션 식별자 |
+| `style` | string (form) | N (기본 `"empathetic"`) | 응답 스타일, `"empathetic"` \| `"realistic"` |
 | `audio` | file (webm) | Y | 녹음 오디오 (webm, 서버가 wav로 변환) |
 
 **Response `200`** `VoiceAnalyzeResponse`
@@ -58,11 +61,13 @@ Base URL: `http://<host>:8000`
     "hex": "#F2B6A0",
     "brightness": 0.38,
     "transition_ms": 2200
-  }
+  },
+  "reply_text": "많이 힘들었겠다... 오늘 하루는 어땠어?"
 }
 ```
 
-- 처리 중 `emotion_classifier_service`로 realtime care 감정 분류, `color_care_service`로 색상 매핑.
+- 처리 중 `emotion_classifier_service.classify_and_reply`로 realtime care 감정 분류 + AI 응답 생성을 한 번의 LLM 호출로 처리, `color_care_service`로 색상 매핑.
+- 응답 생성 후 세션에 user turn과 assistant turn이 함께 저장됨 (`chat/reply`를 별도로 안 불러도 대화 맥락 유지됨).
 - `mood_light_client.push_color`가 백그라운드 태스크로 실시간 색상을 무드등 디바이스에 전송 (`mode: "realtime"`).
 - 임시 webm/wav 파일은 처리 후 삭제됨.
 
@@ -71,6 +76,8 @@ Base URL: `http://<host>:8000`
 ## Chat
 
 ### `POST /api/v1/chat/reply`
+
+> **2026-08-22 변경**: 정상 플로우(녹음→응답)에서는 더 이상 필요 없음 — `voice/analyze`가 `reply_text`를 이미 반환함. 이 엔드포인트는 **같은 turn을 다른 스타일로 재생성하고 싶을 때**(예: "다른 톤으로 다시" 버튼) 수동으로 호출하는 용도로만 남겨둠. 호출 시 세션에 assistant turn이 추가로 쌓이니 유의.
 
 세션의 대화 맥락(turns)과 `care_emotion`을 바탕으로 AI 응답 생성. 생성된 응답은 세션에 assistant turn으로 자동 저장. 대화 LLM은 emotion2vec 최고 점수 라벨을 직접 쓰지 않고, care 분류 결과인 `care_emotion`을 감정 맥락으로 사용한다.
 

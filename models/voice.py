@@ -12,3 +12,4 @@ class VoiceAnalyzeResponse(BaseModel):
     care_emotion_label: str
     care_confidence: float
     care_color: CareColor
+    reply_text: str
