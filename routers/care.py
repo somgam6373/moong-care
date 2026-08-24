@@ -1,7 +1,7 @@
 """라즈베리파이 전용 통합 엔드포인트.
 
-기존 3단계 (voice/analyze -> chat/reply -> tts) 를 한 번의 요청으로 묶는다.
-기존 라우터/서비스는 전혀 수정하지 않고 그대로 순서대로 호출한다.
+voice/analyze 와 동일하게 care 감정분류+응답생성을 LLM 호출 1번으로 묶고,
+TTS는 스트리밍으로 응답 본문에 흘려보낸다.
 
 응답은 답변 음성(wav 바이너리)을 본문에 싣고, 감정/색/전사/타이밍 같은
 구조화된 값은 헤더에 실어 보낸다. HTTP 헤더는 latin-1만 허용하므로
@@ -15,10 +15,9 @@ import uuid
 
 from fastapi import APIRouter, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import Response
+from fastapi.responses import StreamingResponse
 
 from services import (
-    chat_service,
     color_care_service,
     emotion_classifier_service,
     emotion_session,
@@ -74,20 +73,23 @@ async def turn(
         )
         _mark("analyze", t)
 
-        # 3) 9개 -> 14개 care_emotion (친구분 GPT 분류기, 그대로 호출)
+        # 3) 9개 -> 14개 care_emotion + 답변 텍스트를 LLM 호출 1번으로 (voice/analyze와 동일)
         t = time.monotonic()
-        recent_context = emotion_session.get_recent_context(session_id)
+        session = emotion_session.get_session(session_id)
+        history = session.turns if session else []
         care_result = await run_in_threadpool(
-            emotion_classifier_service.classify_realtime_emotion,
+            emotion_classifier_service.classify_and_reply,
             transcript,
             emotions,
             pitch_mean,
             pitch_std,
-            recent_context,
+            history,
+            style,
         )
         care_color = color_care_service.get_realtime_color(care_result.care_emotion)
         care_color_dict = care_color.model_dump()
-        _mark("care", t)
+        reply_text = care_result.reply_text
+        _mark("care_reply", t)
 
         emotion_session.add_user_turn(
             session_id,
@@ -99,29 +101,14 @@ async def turn(
             care_confidence=care_result.confidence,
             care_color=care_color_dict,
         )
-
-        # 4) 답변 텍스트
-        t = time.monotonic()
-        session = emotion_session.get_session(session_id)
-        reply_text = await run_in_threadpool(
-            chat_service.get_reply,
-            session.turns,
-            transcript,
-            emotions,
-            style,
-            care_result.care_emotion,
-        )
         emotion_session.add_assistant_turn(session_id, reply_text)
-        _mark("reply", t)
 
-        # 5) 답변 음성
+        # 4) 답변 음성 — 스트리밍이라 실제 합성 시간은 응답 전송 중에 겹쳐 흐른다
         t = time.monotonic()
         resolved_voice = voice or "nova"
         instructions = tts_service.resolve_instructions(session_id)
-        audio_bytes = await run_in_threadpool(
-            tts_service.synthesize, reply_text, resolved_voice, instructions
-        )
-        _mark("tts", t)
+        audio_stream = tts_service.synthesize_stream(reply_text, resolved_voice, instructions)
+        _mark("tts_setup", t)
 
         timing["total"] = round(time.monotonic() - t_total, 2)
 
@@ -143,7 +130,7 @@ async def turn(
             "X-Reply-Text": _quote(reply_text),
             "X-Timing": ",".join(f"{k}={v}" for k, v in timing.items()),
         }
-        return Response(content=audio_bytes, media_type="audio/wav", headers=headers)
+        return StreamingResponse(audio_stream, media_type="audio/wav", headers=headers)
     finally:
         # wav_path 는 변환이 실제로 일어났을 때만 생성된다 (건너뛴 경우 존재하지 않음).
         for path in (input_path, wav_path):
