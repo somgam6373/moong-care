@@ -48,9 +48,10 @@ LED_BRIDGE_BIN = _env("MOONG_LED_BRIDGE", os.path.join(_PI_DIR, "led_bridge", "l
 LED_SETUP_SCRIPT = os.path.join(_PI_DIR, "led_setup.sh")
 
 # ---------------------------------------------------------------- 오디오
-SAMPLE_RATE = 16_000
+SAMPLE_RATE = 48_000
 CHANNELS = 1
-INPUT_DEVICE = os.environ.get("MOONG_INPUT_DEVICE")    # None이면 기본 장치
+_input_device_raw = os.environ.get("MOONG_INPUT_DEVICE")
+INPUT_DEVICE = int(_input_device_raw) if _input_device_raw is not None and _input_device_raw.isdigit() else _input_device_raw
 OUTPUT_DEVICE = os.environ.get("MOONG_OUTPUT_DEVICE")  # aplay -D 에 들어갈 이름
 
 MIN_RECORD_S = 0.6      # 이보다 짧으면 오녹음으로 보고 버림
