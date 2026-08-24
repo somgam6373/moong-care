@@ -7,6 +7,7 @@ LED 링이 목소리 크기만큼 차오르도록 넘겨줍니다.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import threading
 import wave
@@ -119,16 +120,19 @@ class LullabyPlayer:
         self._thread.start()
 
     def _run(self) -> None:
+        if not os.path.exists(self._path):
+            # aplay 자체는 존재하므로 Popen은 성공하고, aplay가 매번 즉시 실패하며
+            # "No such file" 만 찍고 죽는다. 그러면 아래 while 루프가 그 실패를 계속
+            # 잡아 무한 재시도(스팸)하게 되므로, 여기서 미리 걸러 한 번만 알린다.
+            print(f"[audio] 자장가 파일을 못 찾음: {self._path}")
+            return
+
         cmd = ["aplay", "-q"]
         if config.OUTPUT_DEVICE:
             cmd += ["-D", config.OUTPUT_DEVICE]
         cmd.append(self._path)
         while not self._stop.is_set():
-            try:
-                self._proc = subprocess.Popen(cmd)
-            except FileNotFoundError:
-                print(f"[audio] 자장가 파일을 못 찾음: {self._path}")
-                return
+            self._proc = subprocess.Popen(cmd)
             self._proc.wait()
             self._proc = None
             # 곡이 끝까지 자연 재생되면 stop() 이 불릴 때까지 처음부터 반복한다.
