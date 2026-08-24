@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>moong-care · LED 24구 미리보기 (디퓨저 기준)</title>
+<style>
+  :root{ --bg:#0b0d10; --panel:#14181d; --line:#242a32; --tx:#e6eaef; --tx2:#8e99a8; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+       line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:44px 22px 90px}
+  h1{font-size:27px;margin:0 0 6px;letter-spacing:-.02em}
+  .sub{color:var(--tx2);margin:0 0 28px;font-size:14.5px}
+  h2{font-size:18px;margin:44px 0 6px}
+  .lead{color:var(--tx2);font-size:14px;margin:0 0 18px}
+  .rule{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:16px 20px;margin:18px 0 24px;font-size:14.5px}
+  .rule b{color:#5FE0B0}
+  .warn{border-left:3px solid #F0B06A;border-radius:0 12px 12px 0}
+  .warn b{color:#F0B06A}
+  .ctrl{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:14px 20px;margin:0 0 24px;display:flex;align-items:center;gap:16px;
+        flex-wrap:wrap;font-size:13.5px}
+  .ctrl label{color:var(--tx2)}
+  input[type=range]{width:200px;accent-color:#5FE0B0}
+  .val{font-family:ui-monospace,Menlo,monospace;color:#5FE0B0;min-width:52px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:18px 16px 20px}
+  .pair{display:flex;justify-content:center;gap:14px;align-items:flex-start}
+  .pair figure{margin:0;text-align:center}
+  .pair figcaption{font-size:10.5px;color:#6c7684;margin-top:5px;letter-spacing:.02em}
+  canvas{display:block;border-radius:50%}
+  .name{font-size:15px;font-weight:600;margin-top:13px;text-align:center}
+  .tag{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--tx2);
+       text-align:center;margin-top:2px}
+  .desc{font-size:12.5px;color:var(--tx2);margin-top:10px;line-height:1.55}
+  .emo{display:grid;grid-template-columns:repeat(auto-fit,minmax(126px,1fr));gap:12px}
+  .ecard{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+         padding:13px 8px 14px;text-align:center}
+  .ename{font-size:13px;margin-top:8px}
+  .ehex{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--tx2)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  th{text-align:left;color:var(--tx2);font-weight:600;font-size:11px;letter-spacing:.05em;
+     text-transform:uppercase;padding:8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-bottom:1px solid #1d2229;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  del{color:#6c7684}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>LED 24구 미리보기</h1>
+<p class="sub">링을 눕혀놓고 위에 확산 커버를 씌운 상태 기준으로 다시 설계했습니다.</p>
+
+<div class="rule warn">
+  <b>커버를 씌우면 달라지는 것</b><br>
+  개별 픽셀이 뭉개져 하나의 빛 덩어리로 보입니다. 그래서 <b>점 단위 표현이 전부 사라집니다</b> —
+  흰색 피크 점, 픽셀별 반짝임, 얇은 꼬리는 커버 밑에서 안 보입니다.<br>
+  눕혀놨으니 <b>위아래도 없습니다</b>. "12시에서 차오른다" 같은 방향성도 의미가 없어졌습니다.<br>
+  커버 밑에서도 확실히 살아남는 건 세 가지뿐입니다 —
+  <b>전체 밝기</b>, <b>색</b>, <b>굵은 덩어리의 회전</b>. 이 셋만으로 다시 짰습니다.
+</div>
+
+<div class="ctrl">
+  <label>확산 강도</label>
+  <input type="range" id="blur" min="0" max="26" value="13">
+  <span class="val" id="blurv">13px</span>
+  <span style="color:#6c7684;font-size:12.5px">
+    ← 실제 커버 두께·재질에 맞춰 움직여 보세요. 0이면 생 LED, 오른쪽으로 갈수록 두꺼운 유백색 아크릴
+  </span>
+</div>
+
+<h2>상태 5가지</h2>
+<p class="lead">왼쪽이 생 LED, 오른쪽이 커버를 씌우고 위에서 내려다본 모습입니다.</p>
+
+<div class="grid" id="states"></div>
+
+<h2>무엇이 바뀌었나</h2>
+<div class="card">
+<table>
+<thead><tr><th style="width:16%">상태</th><th style="width:38%">이전 (세워둔 링 기준)</th><th>지금 (눕히고 커버 기준)</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>녹음 중</b></td>
+  <td><del>12시에서 양쪽으로 차오르는 VU 미터. 초록→빨강 그라데이션, 흰색 피크 점</del></td>
+  <td>방향 없이 <b>링 전체 밝기가 음량을 그대로 따라감</b>. 목소리가 크면 확 밝아지고 쉬면 어두워집니다. 색도 앰버→주황빨강으로 살짝 옮겨가고, 조용할 때도 굵은 빛 덩어리 두 개가 천천히 돌아 멈춘 게 아님을 알려줍니다</td>
+</tr>
+<tr>
+  <td><b>계산 중</b></td>
+  <td><del>거의 꺼진 링 + 얇은 혜성 + 픽셀별 반짝임</del></td>
+  <td><b>링 전체가 무지개인 채로 빠르게 회전</b>. 밝기 파동 세 개가 같이 돌아 확산돼도 움직임이 뚜렷합니다. 반짝임은 커버 밑에서 안 보이므로 뺐습니다</td>
+</tr>
+<tr>
+  <td><b>질문 가능</b></td>
+  <td>무지개 8초에 한 바퀴</td>
+  <td>그대로. 커버 밑에서도 잘 보입니다</td>
+</tr>
+<tr>
+  <td><b>오류 · 부팅</b></td>
+  <td>전체 깜빡 / 무지개 스윕</td>
+  <td>그대로. 원래 덩어리 단위라 영향 없음</td>
+</tr>
+<tr>
+  <td><b>감정 14색</b></td>
+  <td>단색 제자리 호흡</td>
+  <td>그대로. 커버를 씌우면 <b>오히려 더 예쁩니다</b> — 점이 안 보이고 색만 남아서 무드등에 가까워집니다</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>커버 밑에서 서로 안 헷갈리나</h2>
+<div class="card">
+<table>
+<thead><tr><th style="width:18%"></th><th>움직임</th><th style="width:24%">색</th><th style="width:18%">속도</th></tr></thead>
+<tbody>
+<tr><td><b>질문 가능</b></td><td>무지개 띠가 은은하게 회전</td><td>무지개</td><td class="mono">8.0초/바퀴</td></tr>
+<tr><td><b>녹음 중</b></td><td>전체가 목소리 따라 불규칙하게 출렁</td><td>앰버~주황빨강</td><td>말하는 대로</td></tr>
+<tr><td><b>계산 중</b></td><td>무지개가 파동과 함께 빠르게 회전</td><td>무지개</td><td class="mono">0.55초/바퀴</td></tr>
+<tr><td><b>답변 중</b></td><td>회전 없음. 제자리 호흡만</td><td>파스텔 단색</td><td class="mono">2.4~5.6초/호흡</td></tr>
+</tbody>
+</table>
+<p class="desc" style="margin-top:14px">
+무지개가 둘(질문 가능·계산 중)이지만 <b>속도가 14배 차이</b>라 헷갈릴 수가 없습니다.
+그리고 회전하는 것은 전부 기계 상태, <b>회전이 멈추고 단색이 되면 감정</b>입니다.
+커버를 씌우면 이 규칙이 오히려 더 선명해집니다.
+</p>
+</div>
+
+<h2>감정 14색 — 답변할 때</h2>
+<p class="lead">회전 없이 링 전체가 같은 색으로 제자리 호흡만 합니다.
+호흡 주기는 <span class="mono">transition_ms × 2</span> — 피로는 5.6초에 한 번, 기쁨은 2.4초에 한 번.</p>
+
+<div class="emo" id="emotions"></div>
+
+</div>
+
+<script>
+const N = 24;
+let BLUR_RATIO = 13/100;
+
+function hsv(h, s, v){
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v*(1-s), q = v*(1-f*s), t = v*(1-(1-f)*s);
+  let r,g,b;
+  switch(i % 6){
+    case 0: r=v;g=t;b=p;break;  case 1: r=q;g=v;b=p;break;
+    case 2: r=p;g=v;b=t;break;  case 3: r=p;g=q;b=v;break;
+    case 4: r=t;g=p;b=v;break;  default: r=v;g=p;b=q;
+  }
+  return [r*255, g*255, b*255];
+}
+function hex2rgb(h){
+  h = h.replace('#','');
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+
+// ---------- 생 LED (커버 없음)
+function drawRaw(ctx, px, size){
+  const cx=size/2, cy=size/2, R=size*0.355, dot=size*0.045;
+  ctx.clearRect(0,0,size,size);
+  ctx.fillStyle='#0d1014'; ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle='#1b2027'; ctx.lineWidth=size*0.10;
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
+  for(let i=0;i<N;i++){
+    const a=-Math.PI/2+(i/N)*Math.PI*2;
+    const x=cx+Math.cos(a)*R, y=cy+Math.sin(a)*R;
+    const [r,g,b]=px[i], lum=(r+g+b)/3;
+    ctx.shadowBlur=size*0.07*Math.min(1,lum/70);
+    ctx.shadowColor=`rgb(${r|0},${g|0},${b|0})`;
+    ctx.fillStyle=`rgb(${Math.max(9,r)|0},${Math.max(9,g)|0},${Math.max(9,b)|0})`;
+    ctx.beginPath(); ctx.arc(x,y,dot,0,Math.PI*2); ctx.fill();
+  }
+  ctx.shadowBlur=0;
+}
+
+// ---------- 확산 커버를 씌우고 위에서 본 모습
+function drawDiffused(ctx, px, size){
+  const cx=size/2, cy=size/2, R=size*0.34;
+  ctx.clearRect(0,0,size,size);
+  ctx.fillStyle='#0d1014'; ctx.fillRect(0,0,size,size);
+
+  ctx.save();
+  // 커버 안쪽으로만 빛이 보이도록
+  ctx.beginPath(); ctx.arc(cx,cy,size*0.475,0,Math.PI*2); ctx.clip();
+  ctx.filter = `blur(${(size*BLUR_RATIO)|0}px)`;
+  ctx.globalCompositeOperation = 'lighter';
+  for(let i=0;i<N;i++){
+    const a=-Math.PI/2+(i/N)*Math.PI*2;
+    const x=cx+Math.cos(a)*R, y=cy+Math.sin(a)*R;
+    const [r,g,b]=px[i];
+    ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;
+    ctx.beginPath(); ctx.arc(x,y,size*0.085,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
+  // 유백색 커버 표면 질감
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,size*0.475,0,Math.PI*2); ctx.clip();
+  const sheen = ctx.createLinearGradient(0,0,size*0.7,size);
+  sheen.addColorStop(0,'rgba(255,255,255,0.055)');
+  sheen.addColorStop(0.5,'rgba(255,255,255,0.012)');
+  sheen.addColorStop(1,'rgba(255,255,255,0.045)');
+  ctx.fillStyle=sheen; ctx.fillRect(0,0,size,size);
+  ctx.restore();
+
+  // 테두리
+  ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(cx,cy,size*0.475,0,Math.PI*2); ctx.stroke();
+}
+
+// ---------- 상태별 계산 (실제 코드와 동일)
+function speechLevel(t){
+  const env  = 0.5 + 0.5*Math.sin(t*2.3);
+  const mod  = 0.55 + 0.45*Math.sin(t*6.1 + 1.3);
+  const gate = Math.sin(t*0.55) > -0.45 ? 1 : 0.04;
+  return Math.max(0, Math.min(1, env*mod*gate*1.35));
+}
+
+const STATES = [
+  {
+    key:'ready', name:'질문 가능', tag:'ready',
+    desc:'링 전체가 무지개. 8초에 한 바퀴 아주 느리게 돌고 4초 주기로 밝기가 오르내립니다. 밝기 0.28이라 방에 켜둬도 부담 없어요. 커버를 씌우면 색이 서로 번져서 더 부드러워집니다.',
+    render(t){
+      const B=0.28, breath=0.80+0.20*(0.5+0.5*Math.sin(2*Math.PI*t/4.0));
+      const out=[];
+      for(let i=0;i<N;i++) out.push(hsv(i/N + t/8.0, 1.0, B*breath));
+      return out;
+    }
+  },
+  {
+    key:'recording', name:'녹음 중', tag:'recording',
+    desc:'방향 없이 링 전체 밝기가 음량을 그대로 따라갑니다. 크게 말하면 확 밝아지고 쉬면 어두워져요. 색은 앰버에서 주황빨강으로 옮겨갑니다. 조용할 때도 굵은 덩어리 두 개가 천천히 돌아서 마이크가 죽은 게 아님을 알려줍니다.',
+    render(t){
+      const lv = speechLevel(t);
+      const B = 0.10 + 0.62*lv;                 // 음량 → 전체 밝기
+      const hue = 0.105 - 0.075*lv;             // 앰버 → 주황빨강
+      const out=[];
+      for(let i=0;i<N;i++){
+        // 조용할 때도 죽지 않도록 굵은 파동 2개가 천천히 회전
+        const wave = 0.5 + 0.5*Math.cos(2*Math.PI*(i/N*2 - t*0.35));
+        const v = B*(0.72 + 0.28*wave);
+        out.push(hsv(hue, 0.95, v));
+      }
+      return out;
+    }
+  },
+  {
+    key:'processing', name:'계산 중', tag:'processing',
+    desc:'링 전체가 무지개인 채로 0.55초에 한 바퀴 빠르게 회전합니다. 밝기 파동 세 개가 함께 돌아 커버를 씌워도 움직임이 뚜렷해요. 서버 응답을 기다리는 4~8초 동안 이 화면입니다.',
+    render(t){
+      const B=0.55, spin=t/0.55;
+      const out=[];
+      for(let i=0;i<N;i++){
+        const wave = 0.5 + 0.5*Math.cos(2*Math.PI*(i/N*3 - t*1.8));
+        const v = B*(0.30 + 0.70*Math.pow(wave, 1.6));
+        out.push(hsv(i/N + spin, 1.0, v));
+      }
+      return out;
+    }
+  },
+  {
+    key:'error', name:'오류', tag:'error',
+    desc:'빨강과 흰색을 번갈아 초당 4회 깜빡입니다. 2초간 치고 자동으로 대기 상태로 복귀해요. 서버가 꺼져 있거나 타임아웃일 때. 전체가 한꺼번에 깜빡이라 커버와 무관하게 잘 보입니다.',
+    render(t){
+      const B=0.70, cyc=t%3.4;
+      if(cyc>2.0) return Array(N).fill([0,0,0]);
+      const step=Math.floor(cyc*8);
+      if(step%2===1) return Array(N).fill([0,0,0]);
+      const v=B*255;
+      return Array(N).fill((Math.floor(step/2)%2===1)?[v,v,v]:[v,0,0]);
+    }
+  },
+  {
+    key:'boot', name:'부팅', tag:'boot',
+    desc:'전원이 들어오면 12시부터 한 바퀴 무지개가 채워집니다. 1.2초. 커버를 벗기고 보면 LED 배선 순서가 맞는지 확인하는 용도로도 씁니다.',
+    render(t){
+      const B=0.35, cyc=t%3.0, head=(cyc/1.2)*N;
+      const out=[];
+      for(let i=0;i<N;i++) out.push(i<=head ? hsv(i/N,1.0,B) : [0,0,0]);
+      return out;
+    }
+  }
+];
+
+const CARE = [
+  ['calm','평온','#A7CDBD',0.42,1600], ['joy','기쁨/만족','#F6C66D',0.50,1200],
+  ['excitement','설렘/들뜸','#BFD8FF',0.44,1800], ['relief','안도','#B8E0C8',0.42,1800],
+  ['sadness','슬픔','#F2B6A0',0.38,2200], ['loneliness','외로움','#E8B7D4',0.35,2400],
+  ['anxiety','불안','#8DB7D9',0.36,2000], ['tension','긴장','#7DCAC3',0.38,1800],
+  ['anger','분노/짜증','#86BFA6',0.32,2500], ['stress','스트레스/과부하','#91B7A8',0.34,2200],
+  ['fatigue','피로','#F0B06A',0.30,2800], ['helplessness','무기력','#D9B8A6',0.32,2800],
+  ['confusion','혼란/당황','#B6B4D8',0.34,2200], ['shame_guilt','자책/민망함','#D8A6A1',0.32,2600]
+];
+
+// ---------- DOM
+const items = [];
+const S = 104, E = 96;
+
+const statesEl = document.getElementById('states');
+STATES.forEach(s => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="pair">
+      <figure><canvas width="${S}" height="${S}" data-k="raw"></canvas><figcaption>생 LED</figcaption></figure>
+      <figure><canvas width="${S}" height="${S}" data-k="dif"></canvas><figcaption>커버 씌움</figcaption></figure>
+    </div>
+    <div class="name">${s.name}</div>
+    <div class="tag">${s.tag}</div>
+    <div class="desc">${s.desc}</div>`;
+  statesEl.appendChild(card);
+  const [c1,c2] = card.querySelectorAll('canvas');
+  items.push({ctx:c1.getContext('2d'), size:S, render:s.render, mode:'raw'});
+  items.push({ctx:c2.getContext('2d'), size:S, render:s.render, mode:'dif'});
+});
+
+const emoEl = document.getElementById('emotions');
+CARE.forEach(([key,label,hexv,bright,ms]) => {
+  const card = document.createElement('div');
+  card.className='ecard';
+  card.innerHTML = `<canvas width="${E}" height="${E}"></canvas>
+    <div class="ename">${label}</div>
+    <div class="ehex">${hexv} · ${(ms*2/1000).toFixed(1)}초</div>`;
+  emoEl.appendChild(card);
+  const [r,g,b] = hex2rgb(hexv);
+  const period = ms*2/1000;
+  items.push({
+    ctx: card.querySelector('canvas').getContext('2d'), size:E, mode:'dif',
+    render(t){
+      const k = 0.60 + 0.40*(0.5+0.5*Math.sin(2*Math.PI*t/period));
+      const v = bright*k;
+      return Array(N).fill([r*v, g*v, b*v]);
+    }
+  });
+});
+
+const slider = document.getElementById('blur');
+const blurv = document.getElementById('blurv');
+slider.addEventListener('input', () => {
+  BLUR_RATIO = (+slider.value)/100;
+  blurv.textContent = slider.value + 'px';
+});
+
+const t0 = performance.now();
+function loop(now){
+  const t = (now - t0)/1000;
+  for(const it of items){
+    const px = it.render(t);
+    if(it.mode === 'raw') drawRaw(it.ctx, px, it.size);
+    else drawDiffused(it.ctx, px, it.size);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

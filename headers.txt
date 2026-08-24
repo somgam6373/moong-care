@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+date: Sun, 16 Aug 2026 14:09:55 GMT
+server: uvicorn
+x-care-emotion: sadness
+x-care-label: %EC%8A%AC%ED%94%94
+x-care-confidence: 0.9
+x-care-fallback: 0
+x-care-hex: #F2B6A0
+x-care-brightness: 0.38
+x-care-transition-ms: 2200
+x-transcript: Someday%20all%20I%20dreams%20you%20no%20be%20some%20know%20people%20you%20and%20me%20be%20so.
+x-reply-text: %EC%8A%AC%ED%94%84%EA%B5%AC%EB%82%98.%20%EC%95%84%EB%AC%B4%EB%9E%98%EB%8F%84%20%EA%BF%88%EC%9D%B4%20%EC%9D%B4%EB%A4%84%EC%A7%80%EC%A7%80%20%EC%95%8A%EC%9D%84%EA%B9%8C%20%EA%B1%B1%EC%A0%95%EB%90%98%EB%8A%94%20%EB%8A%90%EB%82%8C%EC%9D%B4%EA%B2%A0%EC%A7%80.%20%EC%96%B4%EB%96%A4%20%EA%BF%88%EC%9D%84%20%EA%BE%B8%EA%B3%A0%20%EC%9E%88%EC%97%88%EB%8A%94%EC%A7%80%20%EC%A2%80%20%EB%8D%94%20%EC%9D%B4%EC%95%BC%EA%B8%B0%ED%95%B4%EC%A4%84%EB%9E%98%3F
+x-timing: convert=0.02,analyze=1.03,care=3.53,reply=1.42,tts=2.67,total=8.67
+content-length: 133632
+content-type: audio/wav
+

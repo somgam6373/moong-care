@@ -8,7 +8,7 @@ from funasr import AutoModel as FunASRAutoModel
 
 from config import settings
 from database.connection import init_db
-from routers import chat, diary, letter, session, tts, voice
+from routers import care, chat, diary, letter, session, tts, voice
 from utils.audio_converter import ensure_ffmpeg_available
 
 
@@ -33,6 +33,10 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    # care/turn 응답의 X-Care-* 헤더를 브라우저 JS에서도 읽을 수 있도록 노출한다.
+    # (라즈베리파이의 requests 클라이언트는 CORS의 영향을 받지 않으므로 필수는 아니지만,
+    #  나중에 웹에서 같은 엔드포인트를 쓸 때를 대비해 미리 열어둔다.)
+    expose_headers=["*"],
 )
 
 app.include_router(voice.router)
@@ -41,6 +45,7 @@ app.include_router(tts.router)
 app.include_router(session.router)
 app.include_router(diary.router)
 app.include_router(letter.router)
+app.include_router(care.router)
 
 
 @app.get("/health")

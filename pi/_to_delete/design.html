@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>moong-care · 라즈베리파이 설계도</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1d222a; --line:#2a313b;
+    --tx:#e6eaef; --tx2:#98a2b0; --acc:#5FE0B0;
+    --rec:#FF7A5C; --proc:#8FB8FF;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+       line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+  .sub{color:var(--tx2);margin:0 0 40px;font-size:15px}
+  h2{font-size:20px;margin:52px 0 4px;letter-spacing:-.01em}
+  h2 .num{color:var(--acc);font-variant-numeric:tabular-nums;margin-right:10px}
+  .lead{color:var(--tx2);font-size:14.5px;margin:0 0 20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin:18px 0}
+  .note{background:var(--panel2);border-left:3px solid var(--acc);border-radius:0 10px 10px 0;
+        padding:16px 20px;margin:18px 0;font-size:14.5px}
+  .note b{color:var(--acc)}
+  .warn{border-left-color:#F0B06A}
+  .warn b{color:#F0B06A}
+  code{background:#232932;padding:2px 7px;border-radius:5px;font-size:13px;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfe3ff}
+  pre{background:#12161c;border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+      overflow-x:auto;font-size:12.5px;line-height:1.6;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfd8e3}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  th{text-align:left;color:var(--tx2);font-weight:600;font-size:12px;letter-spacing:.04em;
+     text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid #21272f;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .sw{display:inline-block;width:15px;height:15px;border-radius:4px;vertical-align:-3px;margin-right:9px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--tx2)}
+  svg{display:block;width:100%;height:auto}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+  .kv{font-size:14px}
+  .kv div{padding:7px 0;border-bottom:1px solid #21272f;display:flex;justify-content:space-between;gap:16px}
+  .kv div:last-child{border-bottom:none}
+  .kv span:first-child{color:var(--tx2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>moong-care · 라즈베리파이 설계도</h1>
+<p class="sub">택트 스위치 1개로 도는 녹음 → 감정분석 → 답변 루프와 24구 WS2812 링의 상태 표현</p>
+
+<!-- ============================================ 1 -->
+<h2><span class="num">01</span>전체 구조</h2>
+<p class="lead">파이는 <b>클라이언트만</b> 합니다. 같은 공유기 아래에서 서버의 8000 포트로 POST를 걸고, 결과를 그 요청의 응답으로 바로 받습니다.</p>
+
+<div class="card">
+<svg viewBox="0 0 940 250" role="img" aria-label="전체 구조도">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#5FE0B0"/>
+    </marker>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#8FB8FF"/>
+    </marker>
+  </defs>
+
+  <!-- Pi box -->
+  <rect x="20" y="30" width="300" height="190" rx="12" fill="#171b21" stroke="#2a313b"/>
+  <text x="40" y="58" fill="#e6eaef" font-size="15" font-weight="600">Raspberry Pi</text>
+  <text x="40" y="76" fill="#98a2b0" font-size="11.5">main.py · 상태머신</text>
+
+  <rect x="40" y="92" width="120" height="34" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="100" y="113" fill="#e6eaef" font-size="12" text-anchor="middle">택트 스위치</text>
+  <rect x="180" y="92" width="120" height="34" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="240" y="113" fill="#e6eaef" font-size="12" text-anchor="middle">마이크</text>
+  <rect x="40" y="136" width="120" height="34" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="100" y="157" fill="#e6eaef" font-size="12" text-anchor="middle">스피커</text>
+  <rect x="180" y="136" width="120" height="34" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="240" y="157" fill="#e6eaef" font-size="12" text-anchor="middle">WS2812 ×24</text>
+  <text x="40" y="196" fill="#98a2b0" font-size="11">LED는 별도 스레드 60fps — HTTP가 막혀도 안 끊김</text>
+
+  <!-- wifi -->
+  <text x="470" y="112" fill="#98a2b0" font-size="11.5" text-anchor="middle">같은 Wi-Fi</text>
+  <line x1="325" y1="128" x2="605" y2="128" stroke="#5FE0B0" stroke-width="1.6" marker-end="url(#a1)"/>
+  <text x="470" y="146" fill="#5FE0B0" font-size="11.5" text-anchor="middle">POST (요청)</text>
+  <line x1="605" y1="166" x2="325" y2="166" stroke="#8FB8FF" stroke-width="1.6" marker-end="url(#a2)"/>
+  <text x="470" y="184" fill="#8FB8FF" font-size="11.5" text-anchor="middle">응답 (JSON / wav)</text>
+
+  <!-- server -->
+  <rect x="620" y="30" width="300" height="190" rx="12" fill="#171b21" stroke="#2a313b"/>
+  <text x="640" y="58" fill="#e6eaef" font-size="15" font-weight="600">FastAPI 서버 (PC)</text>
+  <text x="640" y="76" fill="#98a2b0" font-size="11.5">0.0.0.0:8000 · GPU</text>
+  <rect x="640" y="92" width="260" height="30" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="654" y="112" fill="#e6eaef" font-size="12">POST /api/v1/voice/analyze</text>
+  <rect x="640" y="128" width="260" height="30" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="654" y="148" fill="#e6eaef" font-size="12">POST /api/v1/chat/reply</text>
+  <rect x="640" y="164" width="260" height="30" rx="8" fill="#1d222a" stroke="#2a313b"/>
+  <text x="654" y="184" fill="#e6eaef" font-size="12">POST /api/v1/tts</text>
+</svg>
+</div>
+
+<div class="note"><b>폴링은 필요 없습니다.</b>
+HTTP는 요청과 응답이 한 쌍입니다. 파이가 <code>requests.post()</code>를 부르면 그 함수가
+서버 처리가 끝날 때까지 기다렸다가 <b>결과를 리턴값으로</b> 돌려줍니다.
+파이 쪽에 서버를 띄우거나 "다 됐나요?"를 반복해서 물어볼 이유가 없습니다.
+(폴링이 필요한 경우는 <i>서버가 먼저</i> 파이에게 말을 걸어야 할 때뿐입니다 —
+예: 앱에서 원격으로 파이를 깨우기. 지금 설계엔 그런 흐름이 없습니다.)
+파이 쪽 타임아웃만 넉넉히(analyze 60초, tts 90초) 잡아두면 됩니다.
+</div>
+
+<!-- ============================================ 2 -->
+<h2><span class="num">02</span>서버 API 3개가 왜 나뉘어 있나</h2>
+<p class="lead">한 번의 대화 턴에서 세 번 호출합니다. 각각 하는 일이 다르고 걸리는 시간도 다릅니다.</p>
+
+<div class="card">
+<table>
+<thead><tr><th style="width:26%">엔드포인트</th><th style="width:24%">보내는 것</th><th style="width:26%">받는 것</th><th>하는 일</th></tr></thead>
+<tbody>
+<tr>
+  <td class="mono">POST /api/v1/voice/analyze</td>
+  <td class="mono">multipart<br>audio(wav) + session_id</td>
+  <td class="mono">transcript<br>emotions{9}<br>pitch_mean/std</td>
+  <td>SenseVoice로 받아쓰기 + emotion2vec로 감정확률 + pyworld로 피치. 셋을 동시에 돌림. <b>가장 오래 걸림</b></td>
+</tr>
+<tr>
+  <td class="mono">POST /api/v1/chat/reply</td>
+  <td class="mono">JSON<br>transcript + emotions</td>
+  <td class="mono">reply_text</td>
+  <td>'뭉이' 시스템 프롬프트 + 이전 대화 기록으로 GPT 답변 생성. 감정을 프롬프트에 끼워 넣음</td>
+</tr>
+<tr>
+  <td class="mono">POST /api/v1/tts</td>
+  <td class="mono">JSON<br>text + session_id</td>
+  <td class="mono">audio/wav (바이너리)</td>
+  <td>답변 텍스트를 음성으로. 직전 감정에 맞춰 말투 지시문(instructions)을 자동으로 바꿈</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p class="lead">세션 상태는 서버가 <code>session_id</code>로 메모리에 들고 있습니다. 그래서 파이는 매번 같은 <code>session_id</code>만 보내면 대화 맥락과 감정 누적이 알아서 이어집니다.</p>
+
+<div class="note warn"><b>지금 서버엔 care_emotion이 없습니다.</b>
+서버가 주는 감정은 emotion2vec의 9개
+(<span class="mono">angry / disgusted / fearful / happy / neutral / other / sad / surprised / unknown</span>)뿐입니다.
+기획서의 <span class="mono">care_emotion</span>은 14개라 1:1 대응이 안 됩니다.
+그래서 파이 쪽 <code>care_map.py</code>에서 <b>SER 확률 + 전사 키워드 + 피치</b> 세 신호를 합쳐 14개 중 하나로 좁힙니다.
+서버를 안 고쳐도 되고, 나중에 서버로 그대로 옮겨도 되는 형태로 분리해 뒀습니다.
+</div>
+
+<!-- ============================================ 3 -->
+<h2><span class="num">03</span>상태 전이도</h2>
+<p class="lead">버튼은 하나, 상태는 다섯. 버튼의 의미는 현재 상태에 따라 달라집니다.</p>
+
+<div class="card">
+<svg viewBox="0 0 940 330" role="img" aria-label="상태 전이도">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#6b7684"/>
+    </marker>
+  </defs>
+
+  <!-- READY -->
+  <rect x="30" y="40" width="180" height="86" rx="14" fill="#171b21" stroke="#5FE0B0" stroke-width="1.6"/>
+  <circle cx="56" cy="66" r="7" fill="#5FE0B0"/>
+  <text x="72" y="71" fill="#e6eaef" font-size="14.5" font-weight="600">READY</text>
+  <text x="48" y="94" fill="#98a2b0" font-size="11.5">민트 · 느린 호흡</text>
+  <text x="48" y="111" fill="#98a2b0" font-size="11.5">"질문해도 돼"</text>
+
+  <!-- RECORDING -->
+  <rect x="290" y="40" width="180" height="86" rx="14" fill="#171b21" stroke="#FF7A5C" stroke-width="1.6"/>
+  <circle cx="316" cy="66" r="7" fill="#FF7A5C"/>
+  <text x="332" y="71" fill="#e6eaef" font-size="14.5" font-weight="600">RECORDING</text>
+  <text x="308" y="94" fill="#98a2b0" font-size="11.5">코랄 · 목소리만큼</text>
+  <text x="308" y="111" fill="#98a2b0" font-size="11.5">링이 차오름</text>
+
+  <!-- PROCESSING -->
+  <rect x="550" y="40" width="180" height="86" rx="14" fill="#171b21" stroke="#8FB8FF" stroke-width="1.6"/>
+  <circle cx="576" cy="66" r="7" fill="#8FB8FF"/>
+  <text x="592" y="71" fill="#e6eaef" font-size="14.5" font-weight="600">PROCESSING</text>
+  <text x="568" y="94" fill="#98a2b0" font-size="11.5">페리윙클 · 반짝임</text>
+  <text x="568" y="111" fill="#98a2b0" font-size="11.5">+ 혜성 회전</text>
+
+  <!-- SPEAKING -->
+  <rect x="550" y="205" width="180" height="86" rx="14" fill="#171b21" stroke="#F2B6A0" stroke-width="1.6"/>
+  <circle cx="576" cy="231" r="7" fill="#F2B6A0"/>
+  <text x="592" y="236" fill="#e6eaef" font-size="14.5" font-weight="600">SPEAKING</text>
+  <text x="568" y="259" fill="#98a2b0" font-size="11.5">care_color 로 호흡</text>
+  <text x="568" y="276" fill="#98a2b0" font-size="11.5">표의 14색 중 하나</text>
+
+  <!-- ERROR -->
+  <rect x="290" y="205" width="180" height="86" rx="14" fill="#171b21" stroke="#FF4D4D" stroke-width="1.6"/>
+  <circle cx="316" cy="231" r="7" fill="#FF4D4D"/>
+  <text x="332" y="236" fill="#e6eaef" font-size="14.5" font-weight="600">ERROR</text>
+  <text x="308" y="259" fill="#98a2b0" font-size="11.5">빨강 3번 깜빡</text>
+  <text x="308" y="276" fill="#98a2b0" font-size="11.5">2초 후 READY</text>
+
+  <!-- transitions -->
+  <line x1="212" y1="83" x2="286" y2="83" stroke="#6b7684" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="249" y="74" fill="#98a2b0" font-size="11" text-anchor="middle">버튼</text>
+
+  <line x1="472" y1="83" x2="546" y2="83" stroke="#6b7684" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="509" y="66" fill="#98a2b0" font-size="11" text-anchor="middle">버튼</text>
+  <text x="509" y="102" fill="#6b7684" font-size="10.5" text-anchor="middle">or 30초</text>
+
+  <line x1="640" y1="128" x2="640" y2="201" stroke="#6b7684" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="652" y="168" fill="#98a2b0" font-size="11">응답 도착</text>
+
+  <line x1="546" y1="248" x2="474" y2="248" stroke="#6b7684" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="510" y="240" fill="#6b7684" font-size="10.5" text-anchor="middle">예외</text>
+
+  <path d="M550 270 L120 270 L120 130" fill="none" stroke="#6b7684" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="300" y="286" fill="#98a2b0" font-size="11" text-anchor="middle">재생 끝 → 다시 질문 가능</text>
+</svg>
+</div>
+
+<div class="note">녹음이 <b>0.6초 미만</b>이면 실수로 두 번 누른 것으로 보고 버리고 READY로 돌아갑니다.
+녹음 중 버튼을 안 누르면 <b>30초</b>에서 자동 종료합니다. 둘 다 <code>config.py</code>에서 조절합니다.</div>
+
+<!-- ============================================ 4 -->
+<h2><span class="num">04</span>한 턴의 시간 흐름</h2>
+<div class="card">
+<svg viewBox="0 0 940 300" role="img" aria-label="시퀀스 다이어그램">
+  <!-- lanes -->
+  <text x="60" y="24" fill="#98a2b0" font-size="12" font-weight="600">사용자</text>
+  <text x="250" y="24" fill="#98a2b0" font-size="12" font-weight="600">Pi 상태머신</text>
+  <text x="500" y="24" fill="#98a2b0" font-size="12" font-weight="600">LED 링</text>
+  <text x="720" y="24" fill="#98a2b0" font-size="12" font-weight="600">서버</text>
+  <line x1="80"  y1="34" x2="80"  y2="286" stroke="#2a313b"/>
+  <line x1="290" y1="34" x2="290" y2="286" stroke="#2a313b"/>
+  <line x1="530" y1="34" x2="530" y2="286" stroke="#2a313b"/>
+  <line x1="770" y1="34" x2="770" y2="286" stroke="#2a313b"/>
+
+  <g font-size="11.5" fill="#e6eaef">
+    <!-- row helper -->
+    <rect x="500" y="46" width="60" height="18" rx="5" fill="#5FE0B0" opacity=".22"/>
+    <text x="568" y="59" fill="#98a2b0">ready</text>
+    <line x1="80" y1="55" x2="286" y2="55" stroke="#6b7684" stroke-width="1.3"/>
+    <text x="96" y="48">버튼 1번째</text>
+
+    <rect x="500" y="82" width="60" height="18" rx="5" fill="#FF7A5C" opacity=".28"/>
+    <text x="568" y="95" fill="#98a2b0">recording · 음량 따라 차오름</text>
+    <text x="96" y="95" fill="#98a2b0">말한다</text>
+
+    <line x1="80" y1="122" x2="286" y2="122" stroke="#6b7684" stroke-width="1.3"/>
+    <text x="96" y="115">버튼 2번째</text>
+    <text x="300" y="115" fill="#98a2b0">wav 저장</text>
+
+    <rect x="500" y="132" width="60" height="18" rx="5" fill="#8FB8FF" opacity=".28"/>
+    <text x="568" y="145" fill="#98a2b0">processing · 반짝반짝</text>
+
+    <line x1="292" y1="168" x2="766" y2="168" stroke="#5FE0B0" stroke-width="1.3"/>
+    <text x="330" y="162" fill="#5FE0B0">POST /voice/analyze  (wav)</text>
+    <line x1="766" y1="184" x2="292" y2="184" stroke="#8FB8FF" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <text x="330" y="196" fill="#8FB8FF">transcript · emotions · pitch</text>
+
+    <text x="300" y="216" fill="#F0B06A">care_map.py → care_emotion + care_color</text>
+
+    <line x1="292" y1="234" x2="766" y2="234" stroke="#5FE0B0" stroke-width="1.3"/>
+    <text x="330" y="228" fill="#5FE0B0">POST /chat/reply → POST /tts → wav</text>
+
+    <rect x="500" y="248" width="60" height="18" rx="5" fill="#F2B6A0" opacity=".3"/>
+    <text x="568" y="261" fill="#98a2b0">speaking · care_color 로 호흡</text>
+    <line x1="286" y1="278" x2="84" y2="278" stroke="#6b7684" stroke-width="1.3"/>
+    <text x="96" y="272" fill="#98a2b0">답변을 듣는다 → 끝나면 ready</text>
+  </g>
+</svg>
+</div>
+
+<!-- ============================================ 5 -->
+<h2><span class="num">05</span>새로 정한 LED 3색</h2>
+<p class="lead">표에 없던 세 상태입니다. 표의 14색이 전부 채도가 낮은 파스텔이라, 이 셋은 <b>일부러 채도를 올려</b> 감정색과 헷갈리지 않게 했습니다.</p>
+
+<div class="card">
+<table>
+<thead><tr><th style="width:20%">상태</th><th style="width:16%">색</th><th style="width:12%">밝기</th><th>움직임과 이유</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>질문 가능</b><br><span class="mono">ready</span></td>
+  <td><span class="sw" style="background:#5FE0B0"></span><span class="mono">#5FE0B0</span></td>
+  <td class="mono">0.30</td>
+  <td>3.2초 주기의 아주 느린 호흡. 신호등의 초록처럼 "지금 말 걸어도 된다". 표엔 이만큼 선명한 초록이 없어 겹치지 않음</td>
+</tr>
+<tr>
+  <td><b>녹음 중</b><br><span class="mono">recording</span></td>
+  <td><span class="sw" style="background:#FF7A5C"></span><span class="mono">#FF7A5C</span></td>
+  <td class="mono">0.55</td>
+  <td>12시 방향에서 양쪽으로 <b>목소리 크기만큼 차오름</b>. 단순 점등이 아니라 반응하므로 "내 말이 들어가고 있다"가 눈에 보임. 녹음=빨강 관습을 따르되 덜 공격적인 코랄</td>
+</tr>
+<tr>
+  <td><b>계산 중</b><br><span class="mono">processing</span></td>
+  <td><span class="sw" style="background:#8FB8FF"></span><span class="mono">#8FB8FF</span></td>
+  <td class="mono">0.45</td>
+  <td>픽셀마다 다른 위상으로 <b>반짝반짝</b> + 초당 1.1바퀴 도는 혜성. 회전이 있어야 멈춘 게 아니라 "일하는 중"으로 읽힘. 차가운 파랑이라 따뜻한 감정색과 대비됨</td>
+</tr>
+<tr>
+  <td><b>오류</b><br><span class="mono">error</span></td>
+  <td><span class="sw" style="background:#FF4D4D"></span><span class="mono">#FF4D4D</span></td>
+  <td class="mono">0.60</td>
+  <td>초당 2.5회 3번 깜빡이고 자동으로 ready 복귀. 서버가 꺼져 있거나 타임아웃일 때</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="num">06</span>감정 14색 (표 그대로)</h2>
+<p class="lead">답변할 때 이 색으로 <code>transition_ms × 2</code> 주기의 호흡을 합니다. 느린 감정일수록 호흡도 느려집니다.</p>
+<div class="card">
+<table>
+<thead><tr><th style="width:22%">care_emotion</th><th style="width:20%">라벨</th><th style="width:22%">hex</th><th style="width:16%">brightness</th><th>transition_ms</th></tr></thead>
+<tbody id="ctable"></tbody>
+</table>
+</div>
+
+<!-- ============================================ 7 -->
+<h2><span class="num">07</span>파일 구성</h2>
+<div class="card">
+<pre>moong-care/pi/
+├── main.py             상태머신. 버튼 → 녹음 → 서버 → 재생 루프
+├── led_controller.py   WS2812 렌더러. 별도 스레드 60fps
+├── care_map.py         SER 9클래스 → care_emotion 14클래스 + 색상표
+├── audio_io.py         sounddevice 녹음(+음량) / aplay 재생
+├── server_client.py    3개 API 호출 래퍼
+├── config.py           서버주소 · 핀번호 · 타임아웃
+└── requirements.txt</pre>
+</div>
+
+<h2><span class="num">08</span>배선과 실행</h2>
+<div class="cols">
+  <div class="card kv">
+    <div><span>WS2812 DIN</span><b>GPIO18 (핀 12)</b></div>
+    <div><span>WS2812 5V / GND</span><b>외부 5V, GND는 파이와 공통</b></div>
+    <div><span>택트 스위치</span><b>GPIO17 (핀 11) ↔ GND</b></div>
+    <div><span>마이크 / 스피커</span><b>USB</b></div>
+  </div>
+  <div class="card">
+<pre>sudo apt install -y alsa-utils python3-dev \
+     portaudio19-dev libopenblas-dev
+
+pip install -r requirements.txt
+
+# 서버 주소 확인 (PC에서 ipconfig)
+export MOONG_SERVER=http://192.168.0.10:8000
+
+python3 audio_io.py        # 장치 번호 확인
+sudo -E python3 led_controller.py   # 색상 눈으로 확인
+sudo -E python3 main.py    # 실행</pre>
+  </div>
+</div>
+
+<div class="note warn"><b>24구 × 최대밝기는 약 1.4A</b>입니다. 파이 5V 핀에서 끌어오면 전압이 떨어져 재부팅이 걸립니다.
+LED는 별도 5V 어댑터로 먹이고 GND만 파이와 묶으세요. 지금 설정의 밝기(0.3~0.55)면 실사용은 0.5A 이하입니다.</div>
+
+<div class="note"><b>왜 sudo -E 인가</b> — <code>rpi_ws281x</code>는 PWM/DMA 레지스터를 직접 건드려서 root가 필요합니다.
+<code>-E</code>를 빼면 <code>MOONG_SERVER</code> 같은 환경변수가 사라져 기본값(192.168.0.10)으로 붙습니다.</div>
+
+<script>
+const CARE = [
+ ["calm","평온","#A7CDBD",0.42,1600],["joy","기쁨/만족","#F6C66D",0.50,1200],
+ ["excitement","설렘/들뜸","#BFD8FF",0.44,1800],["relief","안도","#B8E0C8",0.42,1800],
+ ["sadness","슬픔","#F2B6A0",0.38,2200],["loneliness","외로움","#E8B7D4",0.35,2400],
+ ["anxiety","불안","#8DB7D9",0.36,2000],["tension","긴장","#7DCAC3",0.38,1800],
+ ["anger","분노/짜증","#86BFA6",0.32,2500],["stress","스트레스/과부하","#91B7A8",0.34,2200],
+ ["fatigue","피로","#F0B06A",0.30,2800],["helplessness","무기력","#D9B8A6",0.32,2800],
+ ["confusion","혼란/당황","#B6B4D8",0.34,2200],["shame_guilt","자책/민망함","#D8A6A1",0.32,2600]
+];
+document.getElementById("ctable").innerHTML = CARE.map(r =>
+  `<tr><td class="mono" style="color:#e6eaef">${r[0]}</td><td>${r[1]}</td>
+   <td><span class="sw" style="background:${r[2]}"></span><span class="mono">${r[2]}</span></td>
+   <td class="mono">${r[3].toFixed(2)}</td><td class="mono">${r[4]}</td></tr>`).join("");
+</script>
+
+</div>
+</body>
+</html>

@@ -39,14 +39,12 @@ async def generate(payload: DiaryGenerateRequest, db: Session = Depends(get_db))
     diary_text = diary_service.generate_diary(session.turns, average, dominant)
     summary = summary_service.summarize_diary(diary_text)
 
+    care_timeline = emotion_session.get_care_timeline(payload.session_id)
     _, sleep_color = emotion_session.get_sleep_result(payload.session_id)
     if sleep_color is None:
-        care_timeline = emotion_session.get_care_timeline(payload.session_id)
-        sleep_profile = sleep_color_service.choose_sleep_profile(care_timeline)
+        sleep_profile = sleep_color_service.sleep_profile_for_emotion(dominant)
         sleep_color = color_care_service.get_sleep_color(sleep_profile).model_dump()
         emotion_session.set_sleep_result(payload.session_id, sleep_profile, sleep_color)
-    else:
-        care_timeline = emotion_session.get_care_timeline(payload.session_id)
 
     letter_text = letter_service.generate_letter(session.turns, average, dominant, care_timeline, sleep_color)
     diary = save_diary(db, payload.session_id, diary_text, summary, dominant, average)
