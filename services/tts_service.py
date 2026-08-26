@@ -33,5 +33,6 @@ def synthesize_stream(text: str, voice: str, instructions: str) -> Iterator[byte
         voice=voice,
         input=text,
         instructions=instructions,
+        response_format="wav",
     ) as response:
         yield from response.iter_bytes()

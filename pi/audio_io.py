@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import subprocess
 import threading
+import time
 import wave
 
 import numpy as np
@@ -90,15 +91,73 @@ class Recorder:
 
 
 # ----------------------------------------------------------------------
-def play_wav(path: str) -> None:
-    """블로킹 재생. 재생이 끝나야 리턴합니다."""
+def _rms_level(chunk: np.ndarray) -> float:
+    """녹음 콜백과 동일한 정규화: 16bit 기준 대략 0.02(조용)~0.35(큰 목소리) -> 0~1."""
+    if len(chunk) == 0:
+        return 0.0
+    rms = float(np.sqrt(np.mean(np.square(chunk, dtype=np.float64))))
+    return min(1.0, max(0.0, (rms - 0.01) / 0.22))
+
+
+def _playback_levels(path: str, chunk_ms: float = 50.0) -> tuple[list[float], float]:
+    """재생할 wav 를 재생 시작 전에 미리 훑어 chunk_ms 단위 음량(0~1) 목록을 만든다.
+
+    aplay 는 별도 프로세스라 재생 중 실시간으로 소리 크기를 읽을 수 없다. 그래서
+    미리 전체를 분석해두고, 재생 중엔 경과 시간으로 이 목록을 인덱싱해서 LED에
+    흘려보낸다 (play_wav 참고).
+    """
+    chunk_s = chunk_ms / 1000.0
+    try:
+        with wave.open(path, "rb") as wf:
+            if wf.getsampwidth() != 2:
+                return [], chunk_s
+            sr = wf.getframerate()
+            nch = wf.getnchannels()
+            raw = wf.readframes(wf.getnframes())
+    except (wave.Error, EOFError, OSError):
+        return [], chunk_s
+
+    audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    if nch > 1:
+        audio = audio.reshape(-1, nch).mean(axis=1)
+
+    chunk_len = max(1, int(sr * chunk_s))
+    levels = [_rms_level(audio[i:i + chunk_len]) for i in range(0, len(audio), chunk_len)]
+    return levels, chunk_s
+
+
+def play_wav(path: str, on_level=None) -> None:
+    """블로킹 재생. 재생이 끝나야 리턴합니다.
+
+    on_level 을 주면 재생 중인 소리 크기(0~1)를 주기적으로 넘겨줍니다.
+    (예: led_controller.LedController.set_level 을 넘기면 답변 재생 중에도
+    마이크 입력 때처럼 LED가 목소리 크기에 맞춰 반응합니다.)
+    """
     cmd = ["aplay", "-q"]
     if config.OUTPUT_DEVICE:
         cmd += ["-D", config.OUTPUT_DEVICE]
     cmd.append(path)
-    result = subprocess.run(cmd, capture_output=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"aplay 실패: {result.stderr.decode(errors='ignore')}")
+
+    if on_level is None:
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"aplay 실패: {result.stderr.decode(errors='ignore')}")
+        return
+
+    levels, chunk_s = _playback_levels(path)
+    proc = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+    started = time.monotonic()
+    try:
+        while proc.poll() is None:
+            idx = int((time.monotonic() - started) / chunk_s)
+            on_level(levels[idx] if idx < len(levels) else 0.0)
+            time.sleep(chunk_s)
+    finally:
+        on_level(0.0)
+
+    _, stderr = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"aplay 실패: {stderr.decode(errors='ignore')}")
 
 
 class LullabyPlayer:

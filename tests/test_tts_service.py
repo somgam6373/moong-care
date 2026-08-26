@@ -63,8 +63,14 @@ class _FakeStreamingSpeech:
         self.last_call = None
         self._chunks = chunks
 
-    def create(self, model, voice, input, instructions):
-        self.last_call = {"model": model, "voice": voice, "input": input, "instructions": instructions}
+    def create(self, model, voice, input, instructions, response_format):
+        self.last_call = {
+            "model": model,
+            "voice": voice,
+            "input": input,
+            "instructions": instructions,
+            "response_format": response_format,
+        }
         return _FakeStreamedResponse(self._chunks)
 
 
@@ -85,4 +91,5 @@ def test_synthesize_stream_calls_openai_with_expected_params_and_yields_chunks(m
         "voice": "nova",
         "input": "안녕하세요",
         "instructions": "Speak warmly.",
+        "response_format": "wav",
     }

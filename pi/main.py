@@ -167,7 +167,7 @@ class MoongCare:
 
         self.state = "speaking"
         self.led.set_care_color(result.care_color)
-        play_wav(result.audio_path)
+        play_wav(result.audio_path, on_level=self.led.set_level)
 
     def _sleep_cycle(self) -> None:
         """꾹 눌러서 대화 종료 -> 자장가. 아무 버튼이나 누르면 새 세션으로 깨어난다."""

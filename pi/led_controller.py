@@ -300,9 +300,9 @@ class LedController:
         if state == "processing":
             return self._processing(t)
         if state == "speaking":
-            return self._speaking(params, t)
+            return self._speaking(params, t, level)
         if state == "sleeping":
-            return self._speaking(params, t)  # 렌더링 식은 동일, transition_ms만 훨씬 큼
+            return self._speaking(params, t, 0.0)  # 렌더링 식은 동일, transition_ms만 훨씬 큼
         if state == "error":
             return self._error(t)
         if state == "off":
@@ -341,12 +341,14 @@ class LedController:
             out.append(hsv(i / self._n + spin, 1.0, v))
         return out
 
-    def _speaking(self, params, t):
-        """감정색: 회전 없이 링 전체가 같은 단색으로 제자리 호흡."""
+    def _speaking(self, params, t, level=0.0):
+        """감정색: 기본은 회전 없이 제자리 호흡하고, 뭉이가 말하는 소리 크기(level)가
+        있으면 그 위에 반짝임을 더한다. level=0(취침 등 조용할 때)이면 기존 호흡과 동일."""
         r, g, b = hex_to_rgb(params.get("hex", "#A7CDBD"))
         peak = float(params.get("brightness", 0.42))
         period = max(0.4, float(params.get("transition_ms", 1600)) * 2 / 1000.0)
-        k = 0.60 + 0.40 * (0.5 + 0.5 * math.sin(2 * math.pi * t / period))
+        breathe = 0.60 + 0.40 * (0.5 + 0.5 * math.sin(2 * math.pi * t / period))
+        k = min(1.0, breathe + level * 0.6)
         v = peak * k
         return [(r * v, g * v, b * v)] * self._n
 
