@@ -611,7 +611,7 @@ export async function fetchLive(): Promise<SessionLiveResponse> {
 
 Run: `cd front-ui && npx tsc -b --noEmit`
 Expected: 이 시점에는 `ConversationScreen.tsx` 등이 아직 `analyzeVoice`를 참조하고 있어 에러가 남 —
-정상이다 (Task 8에서 해소됨). `types.ts`/`client.ts` 자체에는 에러가 없어야 한다.
+정상이다 (Task 10에서 해소됨). `types.ts`/`client.ts` 자체에는 에러가 없어야 한다.
 
 - [ ] **Step 4: 커밋**
 
@@ -637,7 +637,7 @@ git commit -m "feat: replace voice/tts API calls with session start/live polling
 - [ ] **Step 1: 사용처가 이 셋뿐인지 재확인**
 
 Run: `grep -rn "useAudioRecorder\|useMicWaveform\|PitchWaveform" front-ui/src`
-Expected: `ConversationScreen.tsx`에서만 나옴 (그 파일은 Task 9에서 다시 씀). 다른 곳에서 나오면 이
+Expected: `ConversationScreen.tsx`에서만 나옴 (그 파일은 Task 10에서 다시 씀). 다른 곳에서 나오면 이
 태스크를 멈추고 그 사용처부터 확인한다.
 
 - [ ] **Step 2: 파일 삭제**
