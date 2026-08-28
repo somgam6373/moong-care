@@ -1,13 +1,4 @@
-.venv/
-__pycache__/
-*.pyc
+﻿node_modules
+dist
 .env
-CosyVoice/
-pretrained_models/
-temp/*
-!temp/.gitkeep
-*.wav
-sample.webm
-.idea/
-*.iml
-.superpowers/
+*.local
