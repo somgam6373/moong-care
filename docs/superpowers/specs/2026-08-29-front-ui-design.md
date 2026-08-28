@@ -33,6 +33,9 @@
 
 - **React 18 + TypeScript + Vite**. 저장소의 `.claude/launch.json`이 이미 `moong-care-frontend` 설정으로
   vite(5173 포트) 실행을 기대하고 있어 그대로 맞춘다 (경로만 실제 `front-ui`로 갱신).
+- `front-ui/`는 백엔드 저장소(`moong-care`, remote `hyun-sai/moong-care.git`) 안쪽에 둔다
+  (`moong-care/front-ui/`) — 별도 홈 디렉토리에 걸쳐있던 엉뚱한 git 저장소 문제를 피하고, 프론트/백엔드를
+  한 저장소로 관리하기 위함.
 - API 베이스 URL: `VITE_API_BASE_URL` 환경변수 (기본값 `http://localhost:8000`), `.env.example` 제공.
 - 상태관리: React Context + `useReducer`. 화면이 3개뿐이고 상태 전이가 단순해 외부 상태관리 라이브러리는
   과함(YAGNI).
