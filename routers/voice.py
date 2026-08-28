@@ -73,10 +73,12 @@ async def analyze(
             },
         )
 
-        dominant = max(emotions, key=emotions.get) if emotions else "neutral"
+        sorted_emotions = sorted(emotions.items(), key=lambda item: item[1], reverse=True)
+        emotion_scores_str = ", ".join(f"{name}={score:.2f}" for name, score in sorted_emotions)
         print(
-            f'[voice] 인식된 말: "{transcript}" | raw 감정: {dominant} '
-            f'({emotions.get(dominant, 0):.2f}) | care 감정: {care_result.care_emotion} '
+            f'[voice] 인식된 말: "{transcript}" | emotion2vec 전체: [{emotion_scores_str}] '
+            f'| pitch: mean={pitch_mean:.1f} std={pitch_std:.1f} '
+            f'| care 감정: {care_result.care_emotion} (confidence={care_result.confidence:.2f}) '
             f'| reason: {care_result.reason}'
         )
 
