@@ -194,7 +194,7 @@ def test_classify_and_reply_parses_care_emotion_and_reply_in_one_call(monkeypatc
     assert result.reply_text == "긴장되겠다, 잘할 수 있어."
     assert result.fallback is False
     assert completions.last_kwargs["response_format"] == {"type": "json_object"}
-    assert "temperature" not in completions.last_kwargs
+    assert completions.last_kwargs["temperature"] == 0.3
 
 
 def test_classify_and_reply_includes_persona_and_history_in_messages(monkeypatch):

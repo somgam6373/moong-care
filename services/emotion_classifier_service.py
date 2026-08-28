@@ -14,6 +14,10 @@ from services.openai_client import get_client
 
 MIN_REAL_TRANSCRIPT_LENGTH = 2
 
+
+def _has_hangul(text: str) -> bool:
+    return any("가" <= ch <= "힣" for ch in text)
+
 CLASSIFIER_SYSTEM_PROMPT = (
     "너는 MoongCare의 실시간 감정 케어 분류기다. "
     "사용자의 발화 텍스트, emotion2vec 전체 점수, pitch 지표, 최근 대화 맥락을 함께 보고 "
@@ -234,7 +238,7 @@ COMBINED_OUTPUT_SCHEMA = {
     "care_emotion": "one of allowed_emotions",
     "confidence": "number between 0 and 1",
     "reason": "short Korean explanation for internal debugging",
-    "reply_text": "2~3 short Korean sentences replying to the user, following the persona/tone instructions above",
+    "reply_text": "2~3 short sentences replying to the user in the SAME LANGUAGE as the transcript, following the persona/tone instructions above",
 }
 
 
@@ -247,6 +251,14 @@ def _combined_system_prompt(style: str) -> str:
         "겉으로는 칭찬처럼 들려도 care_emotion을 부정적으로(anger/stress/confusion/shame_guilt 등) "
         "판단했다면, reply_text도 문자 그대로 감사 인사를 하지 말고 그 판단에 맞게 "
         "조심스럽게 서운함이나 진심을 확인하는 톤으로 반응해. "
+        "IMPORTANT: reply_text MUST be written in the same language as the user's transcript below "
+        "(e.g. if the transcript is in English, reply_text must be in English, not Korean). "
+        "reason은 내부 디버깅용이니 한국어로 써도 되지만, reply_text는 반드시 transcript 언어를 따라라. "
+        "payload의 recent_reply_had_question이 true면, 직전에 이미 질문을 했다는 뜻이야 — "
+        "이번 reply_text는 절대 질문으로 만들지 말고(물음표로 끝내지 마) 공감/반응/의견만 말해. "
+        "'공감 한마디 + 질문'을 매번 반복하는 로봇 같은 패턴은 피해 — "
+        "때로는 질문 없이 네 생각이나 의견을 짧게 말하거나, 사용자 말에 자연스럽게 리액션만 하거나, "
+        "화제를 이어받아 네 얘기를 살짝 보태는 식으로 사람 친구랑 티키타카하듯 반응 방식을 다양하게 바꿔가며 응답해. "
         "반드시 JSON 하나만 반환하고, care_emotion/confidence/reason/reply_text 네 필드를 모두 포함해."
     )
 
@@ -267,11 +279,15 @@ def _build_combined_messages(
             content = f"[케어 감정: {turn.care_emotion}] {content}"
         messages.append({"role": role, "content": content})
 
+    last_assistant_text = next((t.text for t in reversed(history) if t.role == "assistant"), "")
+    recent_reply_had_question = last_assistant_text.rstrip().endswith("?")
+
     payload = {
         "transcript": transcript,
         "voice_emotion_scores": voice_emotion_scores,
         "pitch": {"mean": pitch_mean, "std": pitch_std},
         "allowed_emotions": sorted(ALLOWED_CARE_EMOTIONS),
+        "recent_reply_had_question": recent_reply_had_question,
         "output_schema": COMBINED_OUTPUT_SCHEMA,
     }
     messages.append({"role": "user", "content": json.dumps(payload, ensure_ascii=False)})
@@ -296,10 +312,38 @@ def classify_and_reply(
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=messages,
+            temperature=0.3,
             response_format={"type": "json_object"},
         )
     except Exception:
         return _fallback("classifier+reply call failed", reply_text=chat_service.FALLBACK_REPLY)
 
     result = _parse_response(response.choices[0].message.content, include_reply=True)
+
+    # ponytail: heuristic Hangul-presence check, not a real language detector;
+    # upgrade to langdetect if transcripts start mixing languages within one sentence.
+    if _has_hangul(transcript) != _has_hangul(result.reply_text):
+        target_lang = "한국어" if _has_hangul(transcript) else "영어(English)"
+        try:
+            retry_messages = messages + [
+                {"role": "assistant", "content": response.choices[0].message.content},
+                {
+                    "role": "user",
+                    "content": f"reply_text 언어가 틀렸어. transcript는 {target_lang}야. "
+                    f"reply_text를 반드시 {target_lang}로만 다시 써서 같은 JSON 형식으로 반환해. "
+                    "다른 필드는 그대로 유지해.",
+                },
+            ]
+            retry_response = client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=retry_messages,
+                temperature=0,
+                response_format={"type": "json_object"},
+            )
+            retry_result = _parse_response(retry_response.choices[0].message.content, include_reply=True)
+            if _has_hangul(transcript) == _has_hangul(retry_result.reply_text):
+                result = retry_result
+        except Exception:
+            pass
+
     return _adjust_result(result, transcript, voice_emotion_scores, pitch_mean)
