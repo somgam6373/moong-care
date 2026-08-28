@@ -5,6 +5,7 @@ from services.emotion_session import (
     compute_average, clear_session, get_last_user_emotion, SESSIONS,
     get_recent_context, get_care_timeline, set_sleep_result, get_sleep_result,
     get_last_user_care_emotion, compute_dominant_care_emotion,
+    get_latest_snapshot,
 )
 
 
@@ -186,3 +187,36 @@ def test_sleep_result_roundtrip():
 
     assert profile == "warm_dim"
     assert color["hex"] == "#C9785A"
+
+
+def test_get_latest_snapshot_missing_session_returns_none():
+    assert get_latest_snapshot("does-not-exist") is None
+
+
+def test_get_latest_snapshot_no_user_turns_returns_none():
+    add_assistant_turn("new-id", "안녕!")
+    assert get_latest_snapshot("new-id") is None
+
+
+def test_get_latest_snapshot_returns_latest_user_and_assistant_text():
+    add_user_turn(
+        "s1", "t1", {"happy": 1.0}, care_emotion="joy", care_confidence=0.9,
+        care_color={"hex": "#F6C66D", "brightness": 0.5, "transition_ms": 1200},
+    )
+    add_assistant_turn("s1", "reply1")
+    add_user_turn(
+        "s1", "t2", {"sad": 1.0}, care_emotion="fatigue", care_confidence=0.7,
+        care_color={"hex": "#7DCAC3", "brightness": 0.4, "transition_ms": 1600},
+    )
+    add_assistant_turn("s1", "reply2")
+
+    snapshot = get_latest_snapshot("s1")
+
+    assert snapshot == {
+        "turn_count": 2,
+        "transcript": "t2",
+        "care_emotion": "fatigue",
+        "care_confidence": 0.7,
+        "care_color": {"hex": "#7DCAC3", "brightness": 0.4, "transition_ms": 1600},
+        "reply_text": "reply2",
+    }

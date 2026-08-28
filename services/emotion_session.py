@@ -168,3 +168,24 @@ def compute_dominant_care_emotion(session_id: str) -> str:
 
 def clear_session(session_id: str) -> None:
     SESSIONS.pop(session_id, None)
+
+
+def get_latest_snapshot(session_id: str) -> dict | None:
+    """가장 최근 턴의 감정/색/답변 스냅샷. /session/live 폴링용.
+
+    turn_count 를 버전 번호처럼 써서, front 는 이 값이 바뀌었는지로 새 턴이
+    왔는지 감지한다 (별도 타임스탬프 불필요).
+    """
+    state = SESSIONS.get(session_id)
+    if state is None or state.turn_count == 0:
+        return None
+    reply_text = next((t.text for t in reversed(state.turns) if t.role == "assistant"), None)
+    user_turn = next((t for t in reversed(state.turns) if t.role == "user"), None)
+    return {
+        "turn_count": state.turn_count,
+        "transcript": user_turn.text if user_turn else None,
+        "care_emotion": user_turn.care_emotion if user_turn else None,
+        "care_confidence": user_turn.care_confidence if user_turn else None,
+        "care_color": user_turn.care_color if user_turn else None,
+        "reply_text": reply_text,
+    }
