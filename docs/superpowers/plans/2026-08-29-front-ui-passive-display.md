@@ -537,8 +537,10 @@ Expected: PASS (전체)
 
 - [ ] **Step 5: 전체 백엔드 테스트 확인 + 커밋**
 
-Run: `pytest -q`
-Expected: PASS (전체, Task 1~4에서 추가/수정한 모든 테스트 포함)
+Run: `pytest tests/ -q`
+Expected: PASS (전체, Task 1~4에서 추가/수정한 모든 테스트 포함). `tests/`로 범위를 좁히는 이유:
+저장소 루트에서 `pytest -q`를 그냥 돌리면 `CosyVoice/` 서브모듈까지 수집하려다
+`ModuleNotFoundError: No module named 'tensorrt_llm'`로 죽는다 (이 플랜과 무관한 기존 환경 이슈).
 
 ```bash
 git add routers/care.py tests/test_care_router.py
@@ -1394,8 +1396,10 @@ Expected: PASS — 전체 스위트(기존 `careEmotions.test.ts`, `brightness.t
 
 - [ ] **Step 4: 백엔드 전체 테스트 통과 확인**
 
-Run: `pytest -q`
-Expected: PASS — 전체 스위트 통과 (Task 1~4에서 건드린 파일들 포함)
+Run: `pytest tests/ -q`
+Expected: PASS — 전체 스위트 통과 (Task 1~4에서 건드린 파일들 포함). 저장소 루트에서 범위 없이
+`pytest -q`를 돌리면 `CosyVoice/` 서브모듈까지 수집하려다 `tensorrt_llm` 누락으로 깨진다 (기존
+환경 이슈, 이 플랜과 무관 — 그래서 `tests/`로 범위를 좁힌다).
 
 - [ ] **Step 5: 수동 확인 (dev 서버로 실제 흐름 확인)**
 
