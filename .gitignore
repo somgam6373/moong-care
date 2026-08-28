@@ -10,3 +10,5 @@ temp/*
 sample.webm
 .idea/
 *.iml
+.superpowers/
+.claude/worktrees/

@@ -4,7 +4,7 @@
     {
       "name": "moong-care-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "C:\\Moong-Care-ver.2", "run", "dev"],
+      "runtimeArgs": ["--prefix", "front-ui", "run", "dev"],
       "port": 5173
     },
     {
