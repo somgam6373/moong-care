@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from routers import care as care_router
-from services import emotion_session
+from services import emotion_session, session_state
 
 
 def _build_app():
@@ -153,3 +153,17 @@ def test_turn_requires_audio_field():
     client = TestClient(_build_app())
     response = client.post("/api/v1/care/turn", data={"session_id": "s5"})
     assert response.status_code == 422
+
+
+def test_turn_adopts_session_id_as_current_session(monkeypatch, tmp_path):
+    session_state.clear()
+    emotion_session.SESSIONS.clear()
+    monkeypatch.setattr(care_router, "TEMP_DIR", str(tmp_path))
+    monkeypatch.setattr(care_router, "ensure_wav_16k_mono", lambda inp, out: inp)
+    _patch_happy_path(monkeypatch)
+
+    client = TestClient(_build_app())
+    _post(client, session_id="s7")
+
+    assert session_state.get_current() == "s7"
+    session_state.clear()

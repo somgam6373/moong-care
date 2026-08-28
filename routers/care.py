@@ -21,6 +21,7 @@ from services import (
     color_care_service,
     emotion_classifier_service,
     emotion_session,
+    session_state,
     tts_service,
     voice_service,
 )
@@ -102,6 +103,7 @@ async def turn(
             care_color=care_color_dict,
         )
         emotion_session.add_assistant_turn(session_id, reply_text)
+        session_state.adopt(session_id)
 
         # 4) 답변 음성 — 스트리밍이라 실제 합성 시간은 응답 전송 중에 겹쳐 흐른다
         t = time.monotonic()
