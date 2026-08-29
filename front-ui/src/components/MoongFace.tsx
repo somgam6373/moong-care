@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 function useBlinking(): boolean {
   const [eyesOpen, setEyesOpen] = useState(true)
@@ -20,50 +20,9 @@ function useBlinking(): boolean {
   return eyesOpen
 }
 
-function useMouthAmplitude(audioEl: HTMLAudioElement | null, isPlaying: boolean): number {
-  const [amplitude, setAmplitude] = useState(0)
-  const frameRef = useRef<number | null>(null)
-  const contextRef = useRef<AudioContext | null>(null)
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
-
-  useEffect(() => {
-    if (!audioEl || !isPlaying) {
-      setAmplitude(0)
-      return
-    }
-    const audioContext = contextRef.current ?? new AudioContext()
-    contextRef.current = audioContext
-    // A given <audio> element can only ever be wrapped by one MediaElementSourceNode.
-    const source = sourceRef.current ?? audioContext.createMediaElementSource(audioEl)
-    sourceRef.current = source
-    const analyser = audioContext.createAnalyser()
-    analyser.fftSize = 1024
-    source.connect(analyser)
-    analyser.connect(audioContext.destination)
-
-    const buffer = new Uint8Array(analyser.frequencyBinCount)
-    const tick = () => {
-      analyser.getByteFrequencyData(buffer)
-      const average = buffer.reduce((sum, v) => sum + v, 0) / buffer.length
-      setAmplitude(Math.min(1, average / 255))
-      frameRef.current = requestAnimationFrame(tick)
-    }
-    tick()
-
-    return () => {
-      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
-      analyser.disconnect()
-    }
-  }, [audioEl, isPlaying])
-
-  return amplitude
-}
-
-export function MoongFace({ audioElement, isSpeaking }: { audioElement: HTMLAudioElement | null; isSpeaking: boolean }) {
+export function MoongFace() {
   const eyesOpen = useBlinking()
-  const mouthAmplitude = useMouthAmplitude(audioElement, isSpeaking)
   const eyeScaleY = eyesOpen ? 1 : 0.08
-  const mouthScaleY = 0.6 + mouthAmplitude * 0.9
 
   return (
     <svg
@@ -98,7 +57,6 @@ export function MoongFace({ audioElement, isSpeaking }: { audioElement: HTMLAudi
         stroke="#221f1c"
         strokeWidth="1.8"
         strokeLinecap="round"
-        style={{ transform: `scaleY(${mouthScaleY})`, transformOrigin: '32px 38px', transition: 'transform 60ms linear' }}
       />
     </svg>
   )
