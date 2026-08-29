@@ -1,5 +1,6 @@
 import { LanguageProvider, useTranslation } from './i18n/LanguageContext'
 import { ConversationProvider, useConversation } from './state/ConversationContext'
+import { LiveSync } from './state/LiveSync'
 import { IntroScreen } from './screens/IntroScreen'
 import { ConversationScreen } from './screens/ConversationScreen'
 import { EndingScreen } from './screens/EndingScreen'
@@ -30,6 +31,7 @@ export default function App() {
   return (
     <LanguageProvider>
       <ConversationProvider>
+        <LiveSync />
         <LanguageToggle />
         <Screens />
       </ConversationProvider>
