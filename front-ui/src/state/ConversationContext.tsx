@@ -2,7 +2,6 @@ import { createContext, useContext, useReducer, type Dispatch, type ReactNode } 
 import type { CareColor } from '../api/types'
 
 export type Screen = 'intro' | 'conversation' | 'ending'
-export type RecordingStatus = 'idle' | 'recording' | 'analyzing'
 export type EndingStatus = 'idle' | 'loading' | 'done' | 'error'
 
 export interface TurnResult {
@@ -23,19 +22,15 @@ export interface EndingState {
 export interface ConversationState {
   screen: Screen
   sessionId: string | null
-  recordingStatus: RecordingStatus
-  turnCount: number
   currentTurn: TurnResult | null
-  turnErrorMessage: string | null
+  connectionIssue: boolean
   ending: EndingState
 }
 
 export type ConversationAction =
   | { type: 'START_CONVERSATION'; sessionId: string }
-  | { type: 'RECORDING_STARTED' }
-  | { type: 'RECORDING_STOPPED_ANALYZING' }
-  | { type: 'TURN_SUCCESS'; turn: TurnResult }
-  | { type: 'TURN_ERROR'; message: string }
+  | { type: 'LIVE_TURN'; turn: TurnResult }
+  | { type: 'CONNECTION_ISSUE'; hasIssue: boolean }
   | { type: 'END_REQUESTED' }
   | { type: 'SESSION_ENDED'; dominantEmotion: string; sleepColor: CareColor }
   | { type: 'DIARY_READY'; letterText: string }
@@ -45,10 +40,8 @@ export type ConversationAction =
 export const initialConversationState: ConversationState = {
   screen: 'intro',
   sessionId: null,
-  recordingStatus: 'idle',
-  turnCount: 0,
   currentTurn: null,
-  turnErrorMessage: null,
+  connectionIssue: false,
   ending: { status: 'idle', dominantEmotion: null, sleepColor: null, letterText: null, errorMessage: null },
 }
 
@@ -56,20 +49,10 @@ export function conversationReducer(state: ConversationState, action: Conversati
   switch (action.type) {
     case 'START_CONVERSATION':
       return { ...initialConversationState, screen: 'conversation', sessionId: action.sessionId }
-    case 'RECORDING_STARTED':
-      return { ...state, recordingStatus: 'recording', turnErrorMessage: null }
-    case 'RECORDING_STOPPED_ANALYZING':
-      return { ...state, recordingStatus: 'analyzing' }
-    case 'TURN_SUCCESS':
-      return {
-        ...state,
-        recordingStatus: 'idle',
-        turnCount: state.turnCount + 1,
-        currentTurn: action.turn,
-        turnErrorMessage: null,
-      }
-    case 'TURN_ERROR':
-      return { ...state, recordingStatus: 'idle', turnErrorMessage: action.message }
+    case 'LIVE_TURN':
+      return { ...state, currentTurn: action.turn }
+    case 'CONNECTION_ISSUE':
+      return { ...state, connectionIssue: action.hasIssue }
     case 'END_REQUESTED':
       return { ...state, screen: 'ending', ending: { ...initialConversationState.ending, status: 'loading' } }
     case 'SESSION_ENDED':
