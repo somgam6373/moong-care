@@ -1,4 +1,4 @@
-import type { CareColor, DiaryGenerateResponse, SessionEndResponse, VoiceAnalyzeResponse } from './types'
+import type { CareColor, DiaryGenerateResponse, SessionEndResponse, SessionLiveResponse, SessionStartResponse } from './types'
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -19,39 +19,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return (await res.json()) as T
 }
 
-export async function analyzeVoice(params: {
-  sessionId: string
-  audioBlob: Blob
-  style?: string
-}): Promise<VoiceAnalyzeResponse> {
-  const form = new FormData()
-  form.append('session_id', params.sessionId)
-  form.append('style', params.style ?? 'empathetic')
-  form.append('audio', params.audioBlob, 'recording.webm')
-
-  const res = await fetch(`${API_BASE_URL}/api/v1/voice/analyze`, { method: 'POST', body: form })
-  return handleResponse<VoiceAnalyzeResponse>(res)
+export async function startSession(): Promise<SessionStartResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/session/start`, { method: 'POST' })
+  return handleResponse<SessionStartResponse>(res)
 }
 
-export async function synthesizeSpeech(params: {
-  text: string
-  sessionId?: string
-  voice?: string
-}): Promise<Blob> {
-  const res = await fetch(`${API_BASE_URL}/api/v1/tts`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text: params.text,
-      session_id: params.sessionId ?? null,
-      voice: params.voice ?? null,
-    }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new ApiError(res.status, text || res.statusText)
-  }
-  return res.blob()
+export async function fetchLive(): Promise<SessionLiveResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/session/live`)
+  return handleResponse<SessionLiveResponse>(res)
 }
 
 export async function endSession(sessionId: string): Promise<SessionEndResponse> {

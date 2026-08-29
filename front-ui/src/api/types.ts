@@ -5,17 +5,22 @@ export interface CareColor {
   transition_ms: number
 }
 
-// Mirrors models/voice.py VoiceAnalyzeResponse
-export interface VoiceAnalyzeResponse {
-  transcript: string
-  emotions: Record<string, number>
-  pitch_mean: number
-  pitch_std: number
-  care_emotion: string
-  care_emotion_label: string
-  care_confidence: number
-  care_color: CareColor
-  reply_text: string
+// Mirrors models/emotion.py SessionStartResponse
+export interface SessionStartResponse {
+  session_id: string
+}
+
+// Mirrors models/emotion.py SessionLiveResponse
+export interface SessionLiveResponse {
+  session_id: string | null
+  has_session: boolean
+  ended: boolean
+  turn_count: number
+  transcript: string | null
+  care_emotion: string | null
+  care_confidence: number | null
+  care_color: CareColor | null
+  reply_text: string | null
 }
 
 // Mirrors models/emotion.py SessionEndResponse
