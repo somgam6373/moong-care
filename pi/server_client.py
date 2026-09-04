@@ -14,6 +14,7 @@ percent-encoding 해서 보냅니다. 여기서 urllib.parse.unquote 로 복원�
 
 from __future__ import annotations
 
+import time
 import urllib.parse
 from dataclasses import dataclass
 
@@ -66,10 +67,12 @@ def care_turn(
 ) -> CareTurnResult:
     """POST /api/v1/care/turn 하나로 STT~TTS 전부 처리하고 결과를 받는다."""
     url = f"{config.SERVER_BASE}/api/v1/care/turn"
+    t0 = time.monotonic()
     with open(wav_path, "rb") as f:
         files = {"audio": ("input.wav", f, "audio/wav")}
         data = {"session_id": session_id, "style": style, "voice": voice}
         r = requests.post(url, files=files, data=data, timeout=config.TIMEOUT_TURN)
+    http_done = time.monotonic()
 
     if r.status_code != 200:
         raise ServerError(f"care/turn {r.status_code}: {r.text[:300]}")
@@ -78,6 +81,11 @@ def care_turn(
         f.write(r.content)
 
     h = r.headers
+    timing = _parse_timing(h.get("x-timing", ""))
+    # 서버가 찍는 total 은 tts_setup 직후(=TTS 실제 합성 전) 시점까지라 실제 지연을
+    # 못 잡는다. http_total 은 파이 기준 "요청 보내고 응답 다 받을 때까지" 실측값이라
+    # http_total - total 이 TTS 합성+전송(+업로드) 몫이다.
+    timing["http_total"] = round(http_done - t0, 2)
     return CareTurnResult(
         audio_path=out_path,
         care_emotion=h.get("x-care-emotion", "calm"),
@@ -91,7 +99,7 @@ def care_turn(
         },
         transcript=_unquote(h, "x-transcript"),
         reply_text=_unquote(h, "x-reply-text"),
-        timing=_parse_timing(h.get("x-timing", "")),
+        timing=timing,
     )
 
 

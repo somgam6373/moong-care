@@ -33,7 +33,9 @@ CLASSIFIER_SYSTEM_PROMPT = (
     "반어법이나 비꼼을 추측해서 reason에 쓰지 마라.\n"
     "- 예라면: 텍스트가 칭찬/감사/인정하는 긍정적인 표현인지 확인해. 그렇다면 텍스트를 "
     "문자 그대로 믿지 마라 — 반어법/비꼼이거나 진심이 아닌 칭찬일 가능성이 높다는 신호다. "
-    "이때는 anger, stress, confusion, shame_guilt 중 하나만 골라라. sadness나 "
+    "이때는 anger, stress, confusion, shame_guilt 중 하나만 골라라. confidence를 "
+    "voice_emotion_scores의 원점수(예: sad 0.999)를 그대로 복사해서 쓰지 마라 — "
+    "그건 반어법 판단과 무관한 목소리 원점수일 뿐이다. sadness나 "
     "helplessness처럼 순수한 슬픔·무기력 계열로는 절대 가지 마라 — 반어법/비꼼은 슬픔이 "
     "아니라 짜증·불쾌·당혹감에 가깝다. (disgusted/angry 같은 emotion2vec 라벨 이름 "
     "자체를 care_emotion에 그대로 쓰면 안 된다 — 반드시 allowed_emotions 목록의 단어만 써라.)\n\n"
@@ -238,19 +240,30 @@ COMBINED_OUTPUT_SCHEMA = {
     "care_emotion": "one of allowed_emotions",
     "confidence": "number between 0 and 1",
     "reason": "short Korean explanation for internal debugging",
-    "reply_text": "2~3 short sentences replying to the user in the SAME LANGUAGE as the transcript, following the persona/tone instructions above",
+    "reply_text": "reply to the user in the SAME LANGUAGE as the transcript, following the persona/tone/length instructions above",
 }
 
 
-def _combined_system_prompt(style: str) -> str:
+def _combined_system_prompt(style: str, exchange_count: int) -> str:
     persona_prompt = chat_service.SYSTEM_PROMPTS.get(style, chat_service.SYSTEM_PROMPTS[chat_service.DEFAULT_STYLE])
+    stage_instruction = chat_service._turn_stage_instruction(exchange_count)
     return (
-        f"{persona_prompt}\n\n{CLASSIFIER_SYSTEM_PROMPT}\n\n"
+        f"{persona_prompt}\n\n{stage_instruction}\n\n{CLASSIFIER_SYSTEM_PROMPT}\n\n"
         "위 두 역할(공감 캐릭터로서 답변 생성 + 감정 케어 분류)을 동시에 수행해. "
         "reply_text는 반드시 네가 고른 care_emotion과 같은 해석을 따라야 해 — "
-        "겉으로는 칭찬처럼 들려도 care_emotion을 부정적으로(anger/stress/confusion/shame_guilt 등) "
-        "판단했다면, reply_text도 문자 그대로 감사 인사를 하지 말고 그 판단에 맞게 "
-        "조심스럽게 서운함이나 진심을 확인하는 톤으로 반응해. "
+        "단, 이 일관성 지시는 care_emotion을 anger/stress/confusion/shame_guilt(반어법 판정) "
+        "중 하나로 골랐을 때만 적용해. 그 경우엔 '고마워' 같은 감사 인사뿐 아니라 "
+        "'완벽한 하루였어', '진짜 잘했어' 같은 자랑/칭찬/만족 표현도 전부 같은 취급이야 — "
+        "표면적으로 긍정적으로 들리는 말이면 종류 상관없이 문자 그대로 좋은 일이 있었다고 "
+        "믿고 맞장구치지 마라(예: '좋은 일 있었나 보네', '잘됐다' 금지). 그 대신 말투에서 "
+        "느껴지는 진짜 감정(짜증/불쾌/당혹감 등)을 조심스럽게 알아채고 확인하는 톤으로 "
+        "반응해 — 예를 들어 정말 괜찮은 건지 되묻거나, 힘든 걸 티 안 내려는 것 같다고 "
+        "짚어주는 식으로. "
+        "반대로 care_emotion이 sadness/fatigue/helplessness처럼 반어법 판정이 아닌 라벨이고 "
+        "텍스트 자체는 명백히 감사/칭찬처럼 긍정적인 말이면(예: '고마워', '힘이 돼'), "
+        "그 긍정적인 말을 안타까워하거나 유감스러워하는 톤(예: '안타깝네', '아쉽네')으로 "
+        "받지 마라 — 텍스트의 감사/칭찬은 있는 그대로 받아들이고, 목소리에서 느껴지는 "
+        "울먹임이나 벅찬 감정은 '고마워해줘서 나도 뭉클하다' 같은 식으로만 살짝 얹어. "
         "IMPORTANT: reply_text MUST be written in the same language as the user's transcript below "
         "(e.g. if the transcript is in English, reply_text must be in English, not Korean). "
         "reason은 내부 디버깅용이니 한국어로 써도 되지만, reply_text는 반드시 transcript 언어를 따라라. "
@@ -271,7 +284,8 @@ def _build_combined_messages(
     pitch_std: float,
     style: str,
 ) -> list[dict]:
-    messages = [{"role": "system", "content": _combined_system_prompt(style)}]
+    exchange_count = sum(1 for turn in history if turn.role == "user")
+    messages = [{"role": "system", "content": _combined_system_prompt(style, exchange_count)}]
     for turn in history:
         role = "user" if turn.role == "user" else "assistant"
         content = turn.text

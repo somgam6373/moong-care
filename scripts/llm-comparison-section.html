@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoongCare LLM Turn Test</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f2;
+      --surface: #ffffff;
+      --ink: #17211b;
+      --muted: #637067;
+      --line: #d9dfd6;
+      --accent: #2f6f4e;
+      --accent-dark: #17412d;
+      --accent-soft: #e4efe8;
+      --danger: #9b2f28;
+      --panel: #eef2ec;
+      --code: #f8faf7;
+      --shadow: 0 20px 50px rgb(23 33 27 / 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100dvh;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #fbfcfa 0%, var(--bg) 100%);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 42px 0;
+    }
+
+    .section {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      padding: 26px 30px 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kicker {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(27px, 5vw, 50px);
+      line-height: 1.06;
+      letter-spacing: 0;
+    }
+
+    .session {
+      min-width: 190px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+    }
+
+    .session span {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    .session code {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) 160px auto;
+      gap: 12px;
+      align-items: end;
+      padding: 18px 30px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    input,
+    select {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgb(47 111 78 / 0.12);
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    button {
+      height: 40px;
+      border: 1px solid var(--accent-dark);
+      border-radius: 8px;
+      padding: 0 15px;
+      color: #fff;
+      background: var(--accent-dark);
+      cursor: pointer;
+    }
+
+    button.secondary {
+      border-color: var(--line);
+      color: var(--ink);
+      background: #fff;
+    }
+
+    button.danger {
+      border-color: var(--danger);
+      background: var(--danger);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .status {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 30px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .meter {
+      width: 150px;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #edf1eb;
+    }
+
+    .meter-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+      transition: width 180ms ease;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
+      min-height: 500px;
+    }
+
+    .left,
+    .right {
+      padding: 30px;
+    }
+
+    .left {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+    }
+
+    .right {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      background: var(--surface);
+    }
+
+    .label {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .transcript {
+      min-height: 104px;
+      margin: 0 0 24px;
+      font-size: clamp(24px, 3vw, 36px);
+      font-weight: 820;
+      line-height: 1.22;
+      letter-spacing: 0;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+
+    .placeholder {
+      color: rgb(23 33 27 / 0.42);
+    }
+
+    .evidence {
+      display: grid;
+      gap: 12px;
+      margin: 0 0 24px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .evidence li {
+      padding: 14px;
+      border: 1px solid rgb(99 112 103 / 0.18);
+      border-radius: 8px;
+      background: rgb(255 255 255 / 0.62);
+    }
+
+    .evidence b {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-size: 13px;
+    }
+
+    .evidence span {
+      display: block;
+      font-size: 15px;
+      line-height: 1.55;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+
+    .bars {
+      display: grid;
+      gap: 9px;
+    }
+
+    .bar {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr) 48px;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .track {
+      height: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgb(99 112 103 / 0.16);
+    }
+
+    .fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+    }
+
+    .badge {
+      display: inline-flex;
+      width: max-content;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 850;
+      background: var(--accent-soft);
+    }
+
+    .mark {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgb(47 111 78 / 0.12);
+    }
+
+    .json-list {
+      display: grid;
+      gap: 14px;
+      margin-top: 0;
+    }
+
+    .json-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+    }
+
+    .json-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 7px;
+      border: 1px solid rgb(23 33 27 / 0.14);
+      border-radius: 50%;
+      vertical-align: -1px;
+      background: var(--accent);
+    }
+
+    .chat-shell {
+      min-height: 520px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f0f2ec;
+    }
+
+    .chat-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 48px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 0.74);
+    }
+
+    .chat-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .avatar {
+      display: inline-grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 850;
+      flex: 0 0 auto;
+    }
+
+    .turn-count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .chat-log {
+      display: flex;
+      height: 470px;
+      overflow-y: auto;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .empty-chat {
+      margin: auto;
+      max-width: 260px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.55;
+      word-break: keep-all;
+    }
+
+    .message {
+      display: grid;
+      gap: 5px;
+      max-width: min(78%, 380px);
+    }
+
+    .message.user {
+      align-self: flex-end;
+      justify-items: end;
+    }
+
+    .message.moong {
+      align-self: flex-start;
+      justify-items: start;
+    }
+
+    .message-meta {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .bubble {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 15px;
+      line-height: 1.55;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .user .bubble {
+      color: #1d261f;
+      background: #ffe96a;
+      border-top-right-radius: 2px;
+    }
+
+    .moong .bubble {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: #fff;
+      border-top-left-radius: 2px;
+    }
+
+    pre {
+      max-height: 310px;
+      overflow: auto;
+      margin: 0;
+      padding: 12px;
+      color: var(--ink);
+      background: var(--code);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 960px) {
+      main {
+        width: min(100% - 24px, 760px);
+        padding: 24px 0;
+      }
+
+      .header,
+      .controls,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header,
+      .controls,
+      .left,
+      .right {
+        padding: 22px;
+      }
+
+      .buttons {
+        justify-content: flex-start;
+      }
+
+      .left {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .status {
+        padding: 0 22px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      main {
+        width: min(100% - 18px, 520px);
+        padding: 14px 0;
+      }
+
+      .header,
+      .controls,
+      .left,
+      .right {
+        padding: 18px;
+      }
+
+      .status {
+        display: grid;
+        height: auto;
+        min-height: 62px;
+        padding: 10px 18px;
+      }
+
+      .meter {
+        width: 100%;
+      }
+
+      .bar {
+        grid-template-columns: 72px minmax(0, 1fr) 44px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="section" aria-labelledby="title">
+      <header class="header">
+        <div>
+          <p class="kicker">LLM 비교 테스트</p>
+          <h1 id="title">직접 녹음한 각 턴의 발화, 근거, 뭉이 답변을 비교합니다</h1>
+        </div>
+        <div class="session">
+          <span>session_id</span>
+          <code id="sessionId"></code>
+        </div>
+      </header>
+
+      <div class="controls">
+        <label>
+          서버 주소
+          <input id="baseUrl" value="http://localhost:8000" autocomplete="off">
+        </label>
+        <label>
+          응답 스타일
+          <select id="style">
+            <option value="empathetic">empathetic</option>
+            <option value="realistic">realistic</option>
+          </select>
+        </label>
+        <div class="buttons">
+          <button id="recordBtn">녹음 시작</button>
+          <button id="newSessionBtn" class="secondary" type="button">새 세션</button>
+        </div>
+      </div>
+
+      <div class="status">
+        <span id="statusText">대기 중</span>
+        <div class="meter" aria-hidden="true">
+          <div id="meterFill" class="meter-fill"></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="left">
+          <p class="label">발화</p>
+          <p id="transcript" class="transcript placeholder">녹음이 끝나면 인식된 발화가 표시됩니다.</p>
+
+          <p class="label">근거</p>
+          <ul class="evidence">
+            <li>
+              <b>케어 감정</b>
+              <span id="careJudgement">아직 분석 전입니다.</span>
+            </li>
+            <li>
+              <b>음성 감정 점수</b>
+              <span id="emotionBars">아직 분석 전입니다.</span>
+            </li>
+            <li>
+              <b>피치 지표</b>
+              <span id="pitchStats">아직 분석 전입니다.</span>
+            </li>
+          </ul>
+
+          <p class="label">각 턴 원본 JSON</p>
+          <div id="jsonList" class="json-list">
+            <div class="json-card">
+              <div class="json-head">
+                <span>대기 중</span>
+                <span>-</span>
+              </div>
+              <pre>녹음 후 서버 응답 JSON이 턴별로 쌓입니다.</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="badge">
+            <span class="mark" aria-hidden="true"></span>
+            뭉이와의 대화
+          </div>
+          <div class="chat-shell" aria-label="대화 로그">
+            <div class="chat-top">
+              <div class="chat-title">
+                <span class="avatar">뭉</span>
+                <span>MoongCare</span>
+              </div>
+              <span id="turnSummary" class="turn-count">0 turns</span>
+            </div>
+            <div id="chatLog" class="chat-log">
+              <p class="empty-chat">녹음을 마치면 사용자 발화와 뭉이의 답변이 채팅처럼 쌓입니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const pretty = (value) => JSON.stringify(value, null, 2);
+      const base = () => $("baseUrl").value.replace(/\/$/, "");
+
+      let recorder = null;
+      let stream = null;
+      let chunks = [];
+      let timerId = null;
+      let startedAt = 0;
+      let turnCount = 0;
+
+      function makeSessionId() {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return window.crypto.randomUUID();
+        }
+        return "manual-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+      }
+
+      function setSessionId() {
+        $("sessionId").textContent = makeSessionId();
+      }
+
+      function setStatus(text, progress) {
+        $("statusText").textContent = text;
+        $("meterFill").style.width = Math.max(0, Math.min(100, progress || 0)) + "%";
+      }
+
+      function setText(id, value, placeholder) {
+        const node = $(id);
+        node.textContent = value || placeholder || "-";
+        node.classList.toggle("placeholder", !value);
+      }
+
+      function formatPercent(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "-";
+        return Math.round(number * 100) + "%";
+      }
+
+      function topEmotionRows(emotions) {
+        return Object.entries(emotions || {})
+          .sort((a, b) => Number(b[1]) - Number(a[1]))
+          .slice(0, 5);
+      }
+
+      function renderEmotionBars(emotions) {
+        const rows = topEmotionRows(emotions);
+        if (!rows.length) {
+          $("emotionBars").textContent = "감정 점수가 없습니다.";
+          return;
+        }
+
+        const wrap = document.createElement("div");
+        wrap.className = "bars";
+        rows.forEach(([name, score]) => {
+          const percent = Math.max(0, Math.min(100, Number(score) * 100));
+          const row = document.createElement("div");
+          row.className = "bar";
+          row.innerHTML = [
+            "<span></span>",
+            "<span class=\"track\"><span class=\"fill\"></span></span>",
+            "<span></span>"
+          ].join("");
+          row.children[0].textContent = name;
+          row.children[1].firstElementChild.style.width = percent.toFixed(1) + "%";
+          row.children[2].textContent = formatPercent(score);
+          wrap.appendChild(row);
+        });
+
+        $("emotionBars").replaceChildren(wrap);
+      }
+
+      function appendTurnJson(data) {
+        if (turnCount === 1) $("jsonList").replaceChildren();
+
+        const card = document.createElement("div");
+        card.className = "json-card";
+
+        const head = document.createElement("div");
+        head.className = "json-head";
+
+        const title = document.createElement("span");
+        title.textContent = "Turn " + turnCount;
+
+        const meta = document.createElement("span");
+        const colorHex = data.care_color && data.care_color.hex ? data.care_color.hex : "";
+        meta.innerHTML = colorHex
+          ? "<span class=\"swatch\" style=\"background:" + colorHex + "\"></span>" + (data.care_emotion_label || data.care_emotion || "-")
+          : (data.care_emotion_label || data.care_emotion || "-");
+
+        const pre = document.createElement("pre");
+        pre.textContent = pretty(data);
+
+        head.append(title, meta);
+        card.append(head, pre);
+        $("jsonList").prepend(card);
+      }
+
+      function appendMessage(role, label, text) {
+        const log = $("chatLog");
+        const empty = log.querySelector(".empty-chat");
+        if (empty) empty.remove();
+
+        const message = document.createElement("div");
+        message.className = "message " + role;
+
+        const meta = document.createElement("div");
+        meta.className = "message-meta";
+        meta.textContent = label;
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = text || "-";
+
+        message.append(meta, bubble);
+        log.appendChild(message);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function appendChatTurn(data) {
+        appendMessage("user", "나 · Turn " + turnCount, data.transcript || "인식된 발화 없음");
+        appendMessage("moong", "뭉이", data.reply_text || "답변 없음");
+        $("turnSummary").textContent = turnCount + " turns";
+      }
+
+      function renderResult(data) {
+        const confidence = Number(data.care_confidence);
+        const confidenceText = Number.isFinite(confidence) ? Math.round(confidence * 100) + "%" : "-";
+        const label = data.care_emotion_label || data.care_emotion || "-";
+        const topRows = topEmotionRows(data.emotions);
+        const topText = topRows.length
+          ? topRows.map(([name, score]) => name + " " + formatPercent(score)).join(", ")
+          : "-";
+
+        turnCount += 1;
+        setText("transcript", data.transcript, "인식된 발화가 없습니다.");
+        $("careJudgement").textContent = label + " (" + (data.care_emotion || "-") + "), confidence " + confidenceText;
+        $("pitchStats").textContent = "pitch_mean " + Number(data.pitch_mean || 0).toFixed(1) + " Hz, pitch_std " + Number(data.pitch_std || 0).toFixed(1) + ", 상위 감정 " + topText;
+        renderEmotionBars(data.emotions);
+        appendTurnJson(data);
+        appendChatTurn(data);
+      }
+
+      async function readJsonOrThrow(res) {
+        const text = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { raw: text };
+        }
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status + "\n" + pretty(data));
+        }
+        return data;
+      }
+
+      function preferredMimeType() {
+        const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/wav"];
+        return candidates.find((type) => window.MediaRecorder && MediaRecorder.isTypeSupported(type)) || "";
+      }
+
+      function startTimer() {
+        startedAt = Date.now();
+        timerId = window.setInterval(() => {
+          const seconds = Math.floor((Date.now() - startedAt) / 1000);
+          setStatus("녹음 중 " + seconds + "초", Math.min(92, seconds * 8));
+        }, 250);
+      }
+
+      function stopTimer() {
+        if (timerId) {
+          window.clearInterval(timerId);
+          timerId = null;
+        }
+      }
+
+      async function startRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus("이 브라우저에서 마이크 녹음을 사용할 수 없습니다.", 0);
+          return;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = [];
+        const mimeType = preferredMimeType();
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) chunks.push(event.data);
+        };
+        recorder.onstop = sendRecording;
+        recorder.start();
+        $("recordBtn").textContent = "녹음 종료";
+        $("recordBtn").className = "danger";
+        startTimer();
+        setStatus("녹음 중 0초", 12);
+      }
+
+      function stopRecording() {
+        if (recorder && recorder.state === "recording") {
+          recorder.stop();
+        }
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+          stream = null;
+        }
+        stopTimer();
+        $("recordBtn").textContent = "녹음 시작";
+        $("recordBtn").className = "";
+        setStatus("분석 요청 중", 96);
+      }
+
+      async function sendRecording() {
+        try {
+          if (!chunks.length) {
+            throw new Error("녹음 데이터가 비어 있습니다.");
+          }
+
+          const mimeType = recorder && recorder.mimeType ? recorder.mimeType : "audio/webm";
+          const extension = mimeType.includes("mp4") ? "mp4" : mimeType.includes("wav") ? "wav" : "webm";
+          const blob = new Blob(chunks, { type: mimeType });
+          const form = new FormData();
+          form.append("session_id", $("sessionId").textContent);
+          form.append("style", $("style").value);
+          form.append("audio", blob, "recording." + extension);
+
+          const res = await fetch(base() + "/api/v1/voice/analyze", {
+            method: "POST",
+            body: form
+          });
+          const data = await readJsonOrThrow(res);
+          renderResult(data);
+          setStatus("분석 완료", 100);
+        } catch (err) {
+          turnCount += 1;
+          setStatus("실패", 0);
+          const data = { error: String(err) };
+          appendTurnJson(data);
+          appendMessage("moong", "오류 · Turn " + turnCount, String(err));
+          $("turnSummary").textContent = turnCount + " turns";
+        }
+      }
+
+      $("recordBtn").addEventListener("click", async () => {
+        try {
+          if (recorder && recorder.state === "recording") {
+            stopRecording();
+          } else {
+            await startRecording();
+          }
+        } catch (err) {
+          stopTimer();
+          if (stream) stream.getTracks().forEach((track) => track.stop());
+          setStatus(String(err), 0);
+          $("recordBtn").textContent = "녹음 시작";
+          $("recordBtn").className = "";
+        }
+      });
+
+      $("newSessionBtn").addEventListener("click", () => {
+        setSessionId();
+        turnCount = 0;
+        setText("transcript", "", "녹음이 끝나면 인식된 발화가 표시됩니다.");
+        $("careJudgement").textContent = "아직 분석 전입니다.";
+        $("emotionBars").textContent = "아직 분석 전입니다.";
+        $("pitchStats").textContent = "아직 분석 전입니다.";
+        $("jsonList").innerHTML = "<div class=\"json-card\"><div class=\"json-head\"><span>대기 중</span><span>-</span></div><pre>녹음 후 서버 응답 JSON이 턴별로 쌓입니다.</pre></div>";
+        $("chatLog").innerHTML = "<p class=\"empty-chat\">녹음을 마치면 사용자 발화와 뭉이의 답변이 채팅처럼 쌓입니다.</p>";
+        $("turnSummary").textContent = "0 turns";
+        setStatus("대기 중", 0);
+      });
+
+      setSessionId();
+    })();
+  </script>
+</body>
+</html>

@@ -31,7 +31,8 @@ def test_build_messages_includes_history_and_current_emotion():
     )
 
     assert messages[0]["role"] == "system"
-    assert messages[1] == {"role": "user", "content": "[케어 감정: joy] 안녕"}
+    assert messages[1]["role"] == "system"
+    assert messages[2] == {"role": "user", "content": "[케어 감정: joy] 안녕"}
     assert "fatigue" in messages[-1]["content"]
     assert "오늘 힘들었어" in messages[-1]["content"]
 
@@ -45,10 +46,11 @@ def test_build_messages_carries_emotion_across_multiple_past_turns():
     ]
     messages = chat_service.build_messages(history, "이제 좀 쉬고 싶어", {"neutral": 1.0}, care_emotion="relief")
 
-    assert messages[1] == {"role": "user", "content": "[케어 감정: tension] 오늘 시험 봤어"}
-    assert messages[2] == {"role": "assistant", "content": "긴장했겠다"}
-    assert messages[3] == {"role": "user", "content": "[케어 감정: joy] 근데 잘 봤어"}
-    assert messages[4] == {"role": "user", "content": "그냥 그랬어"}
+    assert messages[1]["role"] == "system"
+    assert messages[2] == {"role": "user", "content": "[케어 감정: tension] 오늘 시험 봤어"}
+    assert messages[3] == {"role": "assistant", "content": "긴장했겠다"}
+    assert messages[4] == {"role": "user", "content": "[케어 감정: joy] 근데 잘 봤어"}
+    assert messages[5] == {"role": "user", "content": "그냥 그랬어"}
 
 
 def test_get_reply_calls_openai_client_and_returns_text(monkeypatch):
@@ -109,6 +111,25 @@ def test_build_messages_falls_back_to_default_for_unknown_style():
     )
 
     assert messages[0]["content"] == chat_service.EMPATHETIC_SYSTEM_PROMPT
+
+
+def test_build_messages_discourages_wrap_up_mid_conversation():
+    history = [
+        TurnRecord(role="user", text="오늘 있었던 일 얘기할게"),
+        TurnRecord(role="assistant", text="응 말해줘"),
+    ]
+    messages = chat_service.build_messages(history, "그래서 말인데", {"neutral": 1.0})
+
+    assert "마무리 짓지 마" in messages[1]["content"]
+
+
+def test_build_messages_allows_wrap_up_after_many_turns():
+    history = [
+        TurnRecord(role="user", text=f"턴 {i}") for i in range(chat_service._MID_TURN_THRESHOLD)
+    ]
+    messages = chat_service.build_messages(history, "이제 그만 얘기할래", {"neutral": 1.0})
+
+    assert "마무리해도 돼" in messages[1]["content"]
 
 
 def test_system_prompts_do_not_force_every_reply_to_end_with_question():

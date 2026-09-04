@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoongCare Pi Turn Simulator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --line: #d8d8d8;
+      --soft: #f6f6f6;
+      --text: #1f1f1f;
+      --muted: #666;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #fff;
+    }
+
+    main {
+      width: min(720px, calc(100vw - 32px));
+      margin: 24px auto 48px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input, select {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 9px;
+      font: inherit;
+      background: #fff;
+    }
+
+    button {
+      height: 34px;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 0 12px;
+      font: inherit;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      border-color: var(--line);
+      background: #fff;
+      color: #222;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .row > * {
+      flex: 0 0 auto;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .recording {
+      color: #b52323;
+      font-weight: 700;
+    }
+
+    .swatchLine {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .swatch {
+      width: 58px;
+      height: 58px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background: #eee;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 4px 8px;
+      font-size: 13px;
+    }
+
+    .kv div:nth-child(odd) {
+      color: var(--muted);
+    }
+
+    pre {
+      min-height: 48px;
+      max-height: 260px;
+      overflow: auto;
+      margin: 10px 0 0;
+      padding: 10px;
+      border-radius: 6px;
+      background: var(--soft);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>MoongCare Pi Turn Simulator</h1>
+  <p class="sub">
+    front-ui는 별도로 <code>npm run dev</code>로 띄워서 보면 됨. 이 페이지는 Pi가 하는 일
+    (<code>/session/start</code> → 녹음 후 <code>/api/v1/care/turn</code> → <code>/session/end</code>)만
+    흉내낸다. front-ui는 이 페이지가 아니라 백엔드 <code>/session/live</code> 폴링으로 자동 반영됨.
+  </p>
+
+  <section>
+    <h2>연결 설정</h2>
+    <label for="baseUrl">서버 주소</label>
+    <input id="baseUrl" value="http://localhost:8000">
+    <label for="sessionId">session_id</label>
+    <div class="row">
+      <input id="sessionId" style="flex: 1 1 260px;" readonly placeholder="아래 버튼으로 시작">
+      <button id="startBtn">/session/start</button>
+      <button class="secondary" id="healthBtn">health 확인</button>
+    </div>
+    <pre id="healthOut">대기 중</pre>
+  </section>
+
+  <section>
+    <h2>턴 보내기 (/api/v1/care/turn)</h2>
+    <label for="style">답장 스타일</label>
+    <select id="style">
+      <option value="empathetic">empathetic</option>
+      <option value="realistic">realistic</option>
+    </select>
+    <div class="row" style="margin-top: 10px;">
+      <button id="recordBtn" disabled>녹음 시작</button>
+      <span id="recordStatus" class="status">세션부터 시작하세요</span>
+    </div>
+    <div class="swatchLine">
+      <div id="careSwatch" class="swatch"></div>
+      <div class="kv">
+        <div>care_emotion</div><div id="careEmotion">-</div>
+        <div>label</div><div id="careLabel">-</div>
+        <div>confidence</div><div id="careConfidence">-</div>
+        <div>transcript</div><div id="transcript">-</div>
+        <div>reply_text</div><div id="replyText">-</div>
+      </div>
+    </div>
+    <audio id="replyAudio" controls></audio>
+    <pre id="turnOut">대기 중</pre>
+  </section>
+
+  <section>
+    <h2>세션 종료 (/api/v1/session/end)</h2>
+    <button id="endBtn" disabled>대화 종료</button>
+    <pre id="endOut">대기 중</pre>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const pretty = (value) => JSON.stringify(value, null, 2);
+  const base = () => $("baseUrl").value.replace(/\/$/, "");
+
+  let recorder = null;
+  let stream = null;
+  let chunks = [];
+
+  async function readJson(res) {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
+  }
+
+  $("healthBtn").addEventListener("click", async () => {
+    $("healthOut").textContent = "요청 중...";
+    try {
+      const res = await fetch(base() + "/health");
+      $("healthOut").textContent = res.status + " " + pretty(await readJson(res));
+    } catch (err) {
+      $("healthOut").textContent = String(err);
+    }
+  });
+
+  $("startBtn").addEventListener("click", async () => {
+    $("healthOut").textContent = "session/start 요청 중...";
+    try {
+      const res = await fetch(base() + "/api/v1/session/start", { method: "POST" });
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(res.status + " " + pretty(data));
+      $("sessionId").value = data.session_id;
+      $("healthOut").textContent = "세션 시작됨 (front-ui가 자동으로 Conversation 화면으로 넘어감): " + pretty(data);
+      $("recordBtn").disabled = false;
+      $("endBtn").disabled = false;
+      $("recordStatus").textContent = "대기 중";
+    } catch (err) {
+      $("healthOut").textContent = String(err);
+    }
+  });
+
+  $("recordBtn").addEventListener("click", async () => {
+    if (recorder && recorder.state === "recording") {
+      recorder.stop();
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      $("recordBtn").textContent = "녹음 시작";
+      $("recordStatus").textContent = "전송 준비 중";
+      $("recordStatus").className = "status";
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      recorder.ondataavailable = (event) => chunks.push(event.data);
+      recorder.onstop = sendTurn;
+      recorder.start();
+      $("recordBtn").textContent = "녹음 정지";
+      $("recordStatus").textContent = "● 녹음 중";
+      $("recordStatus").className = "recording";
+    } catch (err) {
+      $("recordStatus").textContent = String(err);
+    }
+  });
+
+  async function sendTurn() {
+    $("turnOut").textContent = "care/turn 요청 중...";
+    $("recordStatus").textContent = "분석 중 (front-ui에 2초 내 반영됨)";
+    try {
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      const form = new FormData();
+      form.append("session_id", $("sessionId").value);
+      form.append("style", $("style").value);
+      form.append("audio", blob, "recording.webm");
+
+      const res = await fetch(base() + "/api/v1/care/turn", { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await readJson(res);
+        throw new Error(res.status + " " + pretty(body));
+      }
+
+      const h = res.headers;
+      const decode = (v) => (v ? decodeURIComponent(v) : "-");
+      $("careEmotion").textContent = h.get("X-Care-Emotion") || "-";
+      $("careLabel").textContent = decode(h.get("X-Care-Label"));
+      $("careConfidence").textContent = h.get("X-Care-Confidence") || "-";
+      $("transcript").textContent = decode(h.get("X-Transcript"));
+      $("replyText").textContent = decode(h.get("X-Reply-Text"));
+      $("careSwatch").style.background = h.get("X-Care-Hex") || "#eee";
+
+      const audioBlob = await res.blob();
+      $("replyAudio").src = URL.createObjectURL(audioBlob);
+      $("replyAudio").play().catch(() => {});
+
+      $("turnOut").textContent = "timing: " + (h.get("X-Timing") || "-");
+      $("recordStatus").textContent = "완료";
+    } catch (err) {
+      $("turnOut").textContent = String(err);
+      $("recordStatus").textContent = "실패";
+    }
+  }
+
+  $("endBtn").addEventListener("click", async () => {
+    $("endOut").textContent = "session/end 요청 중...";
+    try {
+      const res = await fetch(base() + "/api/v1/session/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: $("sessionId").value }),
+      });
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(res.status + " " + pretty(data));
+      $("endOut").textContent = "종료됨 (front-ui가 자동으로 Ending 화면으로 넘어감): " + pretty(data);
+      $("recordBtn").disabled = true;
+      $("endBtn").disabled = true;
+    } catch (err) {
+      $("endOut").textContent = String(err);
+    }
+  });
+})();
+</script>
+</body>
+</html>
