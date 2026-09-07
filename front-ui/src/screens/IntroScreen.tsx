@@ -23,7 +23,7 @@ export function IntroScreen() {
       <h1>{t('appTitle')}</h1>
       <p>{t('introGreeting')}</p>
       <button
-        style={{ padding: '12px 28px', borderRadius: 999, border: 'none', background: '#A7CDBD', fontSize: 16 }}
+        style={{ padding: '12px 28px', borderRadius: 999, border: 'none', background: '#88D1A6', fontSize: 16 }}
         onClick={handleStart}
       >
         {t('startConversationButton')}
