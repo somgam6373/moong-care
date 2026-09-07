@@ -68,7 +68,7 @@ def test_turn_returns_wav_body_and_care_headers(monkeypatch, tmp_path):
     assert urllib.parse.unquote(response.headers["x-care-label"]) == "기쁨/만족"
     assert response.headers["x-care-confidence"] == "0.82"
     assert response.headers["x-care-fallback"] == "0"
-    assert response.headers["x-care-hex"] == "#F6C66D"
+    assert response.headers["x-care-hex"] == "#F2C66D"
     assert response.headers["x-care-brightness"] == "0.5"
     assert response.headers["x-care-transition-ms"] == "1200"
     assert urllib.parse.unquote(response.headers["x-transcript"]) == "오늘 발표가 잘 됐어요"

@@ -21,27 +21,32 @@ ALLOWED_CARE_EMOTIONS = set(CARE_EMOTION_LABELS)
 FALLBACK_CARE_EMOTION = "calm"
 
 REALTIME_COLORS: dict[str, CareColor] = {
-    "calm": CareColor(hex="#A7CDBD", brightness=0.42, transition_ms=1600),
-    "joy": CareColor(hex="#F6C66D", brightness=0.50, transition_ms=1200),
-    "excitement": CareColor(hex="#BFD8FF", brightness=0.44, transition_ms=1800),
-    "relief": CareColor(hex="#B8E0C8", brightness=0.42, transition_ms=1800),
-    "sadness": CareColor(hex="#F2B6A0", brightness=0.38, transition_ms=2200),
-    "loneliness": CareColor(hex="#E8B7D4", brightness=0.35, transition_ms=2400),
-    "anxiety": CareColor(hex="#8DB7D9", brightness=0.36, transition_ms=2000),
-    "tension": CareColor(hex="#7DCAC3", brightness=0.38, transition_ms=1800),
-    "anger": CareColor(hex="#86BFA6", brightness=0.32, transition_ms=2500),
-    "stress": CareColor(hex="#91B7A8", brightness=0.34, transition_ms=2200),
-    "fatigue": CareColor(hex="#F0B06A", brightness=0.30, transition_ms=2800),
-    "helplessness": CareColor(hex="#D9B8A6", brightness=0.32, transition_ms=2800),
-    "confusion": CareColor(hex="#B6B4D8", brightness=0.34, transition_ms=2200),
-    "shame_guilt": CareColor(hex="#D8A6A1", brightness=0.32, transition_ms=2600),
+    # 2026-08-29 색상 개편: 3D 프린트 디퓨저가 채도를 한 번 더 깎아서, 기존 저채도
+    # 팔레트(S 0.17~0.38)는 확산 후 서로 구분이 안 됐음. PAD quadrant는 유지하고
+    # 채도만 올림 (docs 상 color-palette-revision.md 참고).
+    "calm": CareColor(hex="#88D1A6", brightness=0.42, transition_ms=1600),
+    "joy": CareColor(hex="#F2C66D", brightness=0.50, transition_ms=1200),
+    "excitement": CareColor(hex="#85B8F2", brightness=0.44, transition_ms=1800),
+    "relief": CareColor(hex="#82D98E", brightness=0.42, transition_ms=1800),
+    "sadness": CareColor(hex="#CC8F7A", brightness=0.38, transition_ms=2200),
+    "loneliness": CareColor(hex="#B877B8", brightness=0.35, transition_ms=2400),
+    "anxiety": CareColor(hex="#6369A6", brightness=0.36, transition_ms=2000),
+    "tension": CareColor(hex="#77C7AC", brightness=0.38, transition_ms=1800),
+    "anger": CareColor(hex="#68ACB2", brightness=0.32, transition_ms=2500),
+    "stress": CareColor(hex="#6C8CAD", brightness=0.34, transition_ms=2200),
+    "fatigue": CareColor(hex="#B29E62", brightness=0.30, transition_ms=2800),
+    "helplessness": CareColor(hex="#AD8F71", brightness=0.32, transition_ms=2800),
+    "confusion": CareColor(hex="#876CAD", brightness=0.34, transition_ms=2200),
+    "shame_guilt": CareColor(hex="#BF7C82", brightness=0.32, transition_ms=2600),
 }
 
 SLEEP_COLORS: dict[str, CareColor] = {
-    "warm_dim": CareColor(hex="#C9785A", brightness=0.16, transition_ms=6000),
-    "deep_amber": CareColor(hex="#B85A3D", brightness=0.12, transition_ms=8000),
-    "soft_peach": CareColor(hex="#D18461", brightness=0.14, transition_ms=7000),
-    "low_rose": CareColor(hex="#B96F6B", brightness=0.13, transition_ms=7000),
+    # 버킷(고각성/저에너지/관계·수치심/기본값) 구분이 명도·채도 순서로 드러나도록
+    # 재배치. hue는 멜라토닌 안전범위(350°~40°) 안에서만 벌림.
+    "warm_dim": CareColor(hex="#B86E49", brightness=0.16, transition_ms=6000),
+    "deep_amber": CareColor(hex="#993F31", brightness=0.12, transition_ms=8000),
+    "soft_peach": CareColor(hex="#D1A96D", brightness=0.14, transition_ms=7000),
+    "low_rose": CareColor(hex="#B2626D", brightness=0.13, transition_ms=7000),
 }
 
 
