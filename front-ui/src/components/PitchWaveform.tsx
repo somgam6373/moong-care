@@ -22,7 +22,7 @@ export function PitchWaveform({ samples, active, barCount = 24 }: { samples: Uin
           style={{
             width: 4,
             height: `${Math.max(4, h * 100)}%`,
-            background: '#8DB7D9',
+            background: '#85B8F2',
             borderRadius: 2,
             transition: 'height 60ms linear',
           }}

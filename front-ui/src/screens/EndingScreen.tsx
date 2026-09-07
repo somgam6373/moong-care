@@ -44,7 +44,7 @@ export function EndingScreen() {
         {ending.letterText && dominantInfo && <LetterCard dominantEmotionLabel={dominantLabel} letterText={ending.letterText} />}
         <button
           onClick={() => dispatch({ type: 'RESET' })}
-          style={{ padding: '10px 22px', borderRadius: 999, border: 'none', background: '#A7CDBD' }}
+          style={{ padding: '10px 22px', borderRadius: 999, border: 'none', background: '#88D1A6' }}
         >
           {t('newConversationButton')}
         </button>

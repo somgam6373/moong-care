@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { CareColor } from '../api/types'
 
 // Pre-turn ambience, matches services/color_care_service.py REALTIME_COLORS['calm'].
-const DEFAULT_COLOR: CareColor = { hex: '#A7CDBD', brightness: 0.42, transition_ms: 1600 }
+const DEFAULT_COLOR: CareColor = { hex: '#88D1A6', brightness: 0.42, transition_ms: 1600 }
 
 function buildGradientStyle(color: CareColor | null): CSSProperties {
   const resolved = color ?? DEFAULT_COLOR

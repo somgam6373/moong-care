@@ -95,7 +95,7 @@ export function ConversationScreen() {
             padding: '12px 24px',
             borderRadius: 999,
             border: 'none',
-            background: recorder.isRecording ? '#e07a5f' : '#8DB7D9',
+            background: recorder.isRecording ? '#e07a5f' : '#85B8F2',
             color: '#fff',
           }}
         >
