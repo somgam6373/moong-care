@@ -22,7 +22,12 @@ export function useLiveSync(): void {
     }
 
     if (state.screen === 'conversation') {
-      const stillOngoing = data.has_session && data.session_id === state.sessionId && !data.ended
+      // A poll started before this session began can resolve after START_CONVERSATION already
+      // switched the screen, delivering a stale "no session" snapshot for a different session_id.
+      // Ignore it instead of treating it as this session ending.
+      if (data.session_id !== state.sessionId) return
+
+      const stillOngoing = data.has_session && !data.ended
       if (!stillOngoing) {
         dispatch({ type: 'END_REQUESTED' })
         return

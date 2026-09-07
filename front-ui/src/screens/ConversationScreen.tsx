@@ -1,3 +1,4 @@
+import { advanceMockTurn, USE_MOCK } from '../api/client'
 import { EmotionAtmosphere } from '../components/EmotionAtmosphere'
 import { EmotionColorBar } from '../components/EmotionColorBar'
 import { MoongFace } from '../components/MoongFace'
@@ -22,7 +23,13 @@ export function ConversationScreen() {
 
         <SpeechBubble status={state.currentTurn ? 'reply' : 'idle'} text={state.currentTurn?.replyText} />
 
-        <MoongFace />
+        <div
+          onClick={USE_MOCK ? () => advanceMockTurn() : undefined}
+          style={USE_MOCK ? { cursor: 'pointer' } : undefined}
+        >
+          <MoongFace />
+        </div>
+        {USE_MOCK && <p style={{ fontSize: 12, color: '#999' }}>(mock) 클릭하면 다음 대화로 넘어가요</p>}
 
         {state.connectionIssue && <p role="alert">{t('networkErrorRetry')}</p>}
 
