@@ -33,7 +33,7 @@ def test_end_returns_dominant_care_emotion_and_average_voice_emotions():
     assert body["average_emotions"]["happy"] == pytest.approx(0.6)
     # sleep_color는 이제 세션 전체 다수결이 아니라 대표 감정("joy") 하나에 대응되는 색.
     # joy는 수면색 4버킷 중 어디에도 안 걸리므로 기본값(warm_dim).
-    assert body["sleep_color"] == {"hex": "#C9785A", "brightness": 0.16, "transition_ms": 6000}
+    assert body["sleep_color"] == {"hex": "#B86E49", "brightness": 0.16, "transition_ms": 6000}
 
 
 def test_end_pushes_sleep_color(monkeypatch):
@@ -50,7 +50,7 @@ def test_end_pushes_sleep_color(monkeypatch):
         {
             "mode": "sleep",
             "emotion": "settled",
-            "hex": "#B85A3D",
+            "hex": "#993F31",
             "brightness": 0.12,
             "transition_ms": 8000,
         }

@@ -53,7 +53,7 @@ def test_analyze_endpoint_returns_transcript_emotions_and_pitch(monkeypatch):
     assert body["care_emotion"] == "joy"
     assert body["care_emotion_label"] == "기쁨/만족"
     assert body["care_confidence"] == 0.82
-    assert body["care_color"] == {"hex": "#F6C66D", "brightness": 0.5, "transition_ms": 1200}
+    assert body["care_color"] == {"hex": "#F2C66D", "brightness": 0.5, "transition_ms": 1200}
     assert body["reply_text"] == "발표 잘 끝났다니 다행이다!"
     session = emotion_session.get_session("s1")
     assert session.turn_count == 1
@@ -64,7 +64,7 @@ def test_analyze_endpoint_returns_transcript_emotions_and_pitch(monkeypatch):
         {
             "mode": "realtime",
             "emotion": "joy",
-            "hex": "#F6C66D",
+            "hex": "#F2C66D",
             "brightness": 0.5,
             "transition_ms": 1200,
         }
