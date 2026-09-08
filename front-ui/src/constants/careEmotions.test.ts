@@ -6,7 +6,7 @@ describe('getCareEmotionInfo', () => {
     const info = getCareEmotionInfo('sadness')
     expect(info.labelKo).toBe('슬픔')
     expect(info.labelEn).toBe('Sadness')
-    expect(info.colorNameKo).toBe('따뜻한 살구빛')
+    expect(info.colorNameKo).toBe('차분한 테라코타')
     expect(info.careReasonKo).toBe('따뜻하게 위로')
   })
 
