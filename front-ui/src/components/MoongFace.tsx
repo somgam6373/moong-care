@@ -20,16 +20,34 @@ function useBlinking(): boolean {
   return eyesOpen
 }
 
-export function MoongFace() {
+/** Mouth-openness while "talking" — no real audio to analyze in this
+ * poll-driven UI, so the mouth just flaps on a fast random cadence
+ * whenever the caller says 뭉이 is speaking. */
+function useTalking(isSpeaking: boolean): number {
+  const [openness, setOpenness] = useState(0)
+  useEffect(() => {
+    if (!isSpeaking) {
+      setOpenness(0)
+      return
+    }
+    const interval = setInterval(() => setOpenness(0.3 + Math.random() * 0.7), 110)
+    return () => clearInterval(interval)
+  }, [isSpeaking])
+  return openness
+}
+
+export function MoongFace({ size = 220, isSpeaking = false }: { size?: number; isSpeaking?: boolean }) {
   const eyesOpen = useBlinking()
   const eyeScaleY = eyesOpen ? 1 : 0.08
+  const mouthOpenness = useTalking(isSpeaking)
+  const mouthScaleY = isSpeaking ? 0.5 + mouthOpenness * 0.9 : 1
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 64 64"
-      width={220}
-      height={220}
+      width={size}
+      height={size}
       aria-label="뭉이"
       style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.12))' }}
     >
@@ -57,6 +75,7 @@ export function MoongFace() {
         stroke="#221f1c"
         strokeWidth="1.8"
         strokeLinecap="round"
+        style={{ transform: `scaleY(${mouthScaleY})`, transformOrigin: '32px 38px', transition: 'transform 90ms ease' }}
       />
     </svg>
   )
