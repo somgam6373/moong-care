@@ -1,10 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLivePolling } from '../hooks/useLivePolling'
 import { useConversation } from './ConversationContext'
 
 export function useLiveSync(): void {
   const live = useLivePolling()
   const { state, dispatch } = useConversation()
+  // Tracks the last session_id a live poll actually confirmed (i.e. returned matching
+  // has_session/session_id for). Lets us tell "stale poll from before this session
+  // started" apart from "this session's pointer just disappeared because it ended" —
+  // both show up as session_id !== state.sessionId, but only the latter is real once
+  // we've already seen this session confirmed at least once.
+  const confirmedSessionRef = useRef<string | null>(null)
 
   useEffect(() => {
     dispatch({ type: 'CONNECTION_ISSUE', hasIssue: live.consecutiveFailures >= 3 })
@@ -16,18 +22,23 @@ export function useLiveSync(): void {
 
     if (state.screen === 'intro') {
       if (data.has_session && data.session_id) {
+        confirmedSessionRef.current = data.session_id
         dispatch({ type: 'START_CONVERSATION', sessionId: data.session_id })
       }
       return
     }
 
     if (state.screen === 'conversation') {
-      // A poll started before this session began can resolve after START_CONVERSATION already
-      // switched the screen, delivering a stale "no session" snapshot for a different session_id.
-      // Ignore it instead of treating it as this session ending.
-      if (data.session_id !== state.sessionId) return
+      const matchesCurrent = data.session_id === state.sessionId
+      if (matchesCurrent) {
+        confirmedSessionRef.current = state.sessionId
+      } else if (confirmedSessionRef.current !== state.sessionId) {
+        // Never confirmed this session via a poll yet — this mismatch is a stale
+        // pre-START_CONVERSATION snapshot, not evidence the session ended.
+        return
+      }
 
-      const stillOngoing = data.has_session && !data.ended
+      const stillOngoing = matchesCurrent && data.has_session && !data.ended
       if (!stillOngoing) {
         dispatch({ type: 'END_REQUESTED' })
         return
