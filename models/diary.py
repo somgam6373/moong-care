@@ -12,6 +12,7 @@ class DiaryGenerateResponse(BaseModel):
     letter_id: int
     diary_text: str
     letter_text: str
+    letter_text_en: str = ""
     summary: str
     dominant_emotion: str
 

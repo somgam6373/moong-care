@@ -60,7 +60,10 @@ def test_generate_creates_diary_and_clears_session(monkeypatch):
     monkeypatch.setattr(
         diary_router.letter_service,
         "generate_letter",
-        lambda history, average, dominant_care_emotion, care_timeline, sleep_color: "오늘 발표 이야기를 들으며 나도 기뻤어.",
+        lambda history, average, dominant_care_emotion, care_timeline, sleep_color: (
+            "오늘 발표 이야기를 들으며 나도 기뻤어.",
+            "Hearing about your presentation today made me happy too.",
+        ),
     )
 
     app, _ = _build_app()
@@ -71,6 +74,7 @@ def test_generate_creates_diary_and_clears_session(monkeypatch):
     body = response.json()
     assert body["diary_text"] == "오늘은 발표를 잘해서 기뻤다."
     assert body["letter_text"] == "오늘 발표 이야기를 들으며 나도 기뻤어."
+    assert body["letter_text_en"] == "Hearing about your presentation today made me happy too."
     assert body["letter_id"] == 1
     assert body["summary"] == "발표 성공으로 뿌듯한 하루"
     assert body["dominant_emotion"] == "joy"

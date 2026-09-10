@@ -37,6 +37,23 @@ def test_save_and_get_letter(db_session):
     assert json.loads(fetched.sleep_color)["hex"] == "#C9785A"
 
 
+def test_save_and_get_letter_stores_english_text(db_session):
+    letter = save_letter(
+        db_session,
+        session_id="s1",
+        diary_id=10,
+        letter_text="오늘 네 이야기를 들었어.",
+        summary="긴장한 하루",
+        dominant_emotion="tension",
+        sleep_color=None,
+        letter_text_en="I heard about your day today.",
+    )
+
+    fetched = get_letter(db_session, letter.id)
+
+    assert fetched.letter_text_en == "I heard about your day today."
+
+
 def test_get_letter_returns_none_for_missing_id(db_session):
     assert get_letter(db_session, 999) is None
 

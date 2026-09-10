@@ -36,6 +36,7 @@ export interface DiaryGenerateResponse {
   letter_id: number
   diary_text: string
   letter_text: string
+  letter_text_en: string
   summary: string
   dominant_emotion: string
 }

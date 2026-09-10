@@ -11,11 +11,15 @@ export interface TurnResult {
   replyText: string
 }
 
+export type LetterLang = 'ko' | 'en'
+
 export interface EndingState {
   status: EndingStatus
   dominantEmotion: string | null
   sleepColor: CareColor | null
-  letterText: string | null
+  letterTextKo: string | null
+  letterTextEn: string | null
+  letterLang: LetterLang
   errorMessage: string | null
 }
 
@@ -33,8 +37,9 @@ export type ConversationAction =
   | { type: 'CONNECTION_ISSUE'; hasIssue: boolean }
   | { type: 'END_REQUESTED' }
   | { type: 'SESSION_ENDED'; dominantEmotion: string; sleepColor: CareColor }
-  | { type: 'DIARY_READY'; letterText: string }
+  | { type: 'DIARY_READY'; letterTextKo: string; letterTextEn: string }
   | { type: 'ENDING_ERROR'; message: string }
+  | { type: 'TOGGLE_LETTER_LANG' }
   | { type: 'RESET' }
 
 export const initialConversationState: ConversationState = {
@@ -42,7 +47,15 @@ export const initialConversationState: ConversationState = {
   sessionId: null,
   currentTurn: null,
   connectionIssue: false,
-  ending: { status: 'idle', dominantEmotion: null, sleepColor: null, letterText: null, errorMessage: null },
+  ending: {
+    status: 'idle',
+    dominantEmotion: null,
+    sleepColor: null,
+    letterTextKo: null,
+    letterTextEn: null,
+    letterLang: 'ko',
+    errorMessage: null,
+  },
 }
 
 export function conversationReducer(state: ConversationState, action: ConversationAction): ConversationState {
@@ -61,9 +74,19 @@ export function conversationReducer(state: ConversationState, action: Conversati
         ending: { ...state.ending, dominantEmotion: action.dominantEmotion, sleepColor: action.sleepColor },
       }
     case 'DIARY_READY':
-      return { ...state, ending: { ...state.ending, status: 'done', letterText: action.letterText } }
+      return {
+        ...state,
+        ending: {
+          ...state.ending,
+          status: 'done',
+          letterTextKo: action.letterTextKo,
+          letterTextEn: action.letterTextEn,
+        },
+      }
     case 'ENDING_ERROR':
       return { ...state, ending: { ...state.ending, status: 'error', errorMessage: action.message } }
+    case 'TOGGLE_LETTER_LANG':
+      return { ...state, ending: { ...state.ending, letterLang: state.ending.letterLang === 'ko' ? 'en' : 'ko' } }
     case 'RESET':
       return initialConversationState
     default:

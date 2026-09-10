@@ -77,6 +77,7 @@ export async function mockGenerateDiary(_sessionId: string): Promise<DiaryGenera
     letter_id: 1,
     diary_text: '오늘은 이런저런 감정을 겪은 하루였어요. 지치기도 했지만 편안함도 느꼈던 것 같아요.',
     letter_text: '오늘 하루도 정말 고생 많았어요. 지치는 순간도 있었지만, 그 안에서도 편안함을 찾아낸 당신이 대견해요. 내일은 조금 더 가벼운 마음으로 시작할 수 있길 바라요.',
+    letter_text_en: "You worked so hard today. There were tiring moments, but I'm proud of you for finding comfort even then. I hope tomorrow starts a little lighter.",
     summary: '지침과 편안함이 섞인 하루',
     dominant_emotion: 'calm',
   }

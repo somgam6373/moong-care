@@ -14,6 +14,7 @@ class Letter(Base):
     session_id = Column(String(64), nullable=False)
     diary_id = Column(Integer, nullable=True)
     letter_text = Column(Text, nullable=False)
+    letter_text_en = Column(Text, nullable=True)
     summary = Column(String(255), nullable=False)
     dominant_emotion = Column(String(32), nullable=False)
     sleep_color = Column(Text, nullable=True)
@@ -28,11 +29,13 @@ def save_letter(
     summary: str,
     dominant_emotion: str,
     sleep_color: dict | None,
+    letter_text_en: str = "",
 ) -> Letter:
     letter = Letter(
         session_id=session_id,
         diary_id=diary_id,
         letter_text=letter_text,
+        letter_text_en=letter_text_en,
         summary=summary,
         dominant_emotion=dominant_emotion,
         sleep_color=json.dumps(sleep_color) if sleep_color is not None else None,

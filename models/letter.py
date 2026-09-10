@@ -19,6 +19,7 @@ class LetterDetail(BaseModel):
     session_id: str
     diary_id: int | None
     letter_text: str
+    letter_text_en: str = ""
     summary: str
     dominant_emotion: str
     sleep_color: CareColor | None

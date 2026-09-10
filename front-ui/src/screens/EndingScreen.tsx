@@ -12,7 +12,7 @@ export function EndingScreen() {
   const { sessionId, ending } = state
 
   useEffect(() => {
-    if (!sessionId || ending.status !== 'loading' || ending.letterText) return
+    if (!sessionId || ending.status !== 'loading' || ending.letterTextKo) return
     let cancelled = false
     ;(async () => {
       try {
@@ -22,7 +22,7 @@ export function EndingScreen() {
 
         const diaryResult = await generateDiary(sessionId)
         if (cancelled) return
-        dispatch({ type: 'DIARY_READY', letterText: diaryResult.letter_text })
+        dispatch({ type: 'DIARY_READY', letterTextKo: diaryResult.letter_text, letterTextEn: diaryResult.letter_text_en })
       } catch (err) {
         if (!cancelled) dispatch({ type: 'ENDING_ERROR', message: err instanceof Error ? err.message : String(err) })
       }
@@ -40,8 +40,16 @@ export function EndingScreen() {
     <EmotionAtmosphere color={ending.sleepColor}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24 }}>
         {ending.status === 'error' && <p role="alert">{t('networkErrorRetry')}</p>}
-        {(ending.status === 'loading' || (ending.status !== 'error' && !ending.letterText)) && <p>{t('loadingLetter')}</p>}
-        {ending.letterText && dominantInfo && <LetterCard dominantEmotionLabel={dominantLabel} letterText={ending.letterText} />}
+        {(ending.status === 'loading' || (ending.status !== 'error' && !ending.letterTextKo)) && <p>{t('loadingLetter')}</p>}
+        {ending.letterTextKo && dominantInfo && (
+          <LetterCard
+            dominantEmotionLabel={dominantLabel}
+            letterTextKo={ending.letterTextKo}
+            letterTextEn={ending.letterTextEn ?? ending.letterTextKo}
+            lang={ending.letterLang}
+            onToggleLang={() => dispatch({ type: 'TOGGLE_LETTER_LANG' })}
+          />
+        )}
         <button
           onClick={() => dispatch({ type: 'RESET' })}
           style={{ padding: '10px 22px', borderRadius: 999, border: 'none', background: '#A7CDBD' }}

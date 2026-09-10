@@ -37,6 +37,7 @@ async def get_letter_detail(letter_id: int, db: Session = Depends(get_db)):
         session_id=letter.session_id,
         diary_id=letter.diary_id,
         letter_text=letter.letter_text,
+        letter_text_en=letter.letter_text_en or "",
         summary=letter.summary,
         dominant_emotion=letter.dominant_emotion,
         sleep_color=json.loads(letter.sleep_color) if letter.sleep_color else None,

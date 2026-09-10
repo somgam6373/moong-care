@@ -46,9 +46,13 @@ async def generate(payload: DiaryGenerateRequest, db: Session = Depends(get_db))
         sleep_color = color_care_service.get_sleep_color(sleep_profile).model_dump()
         emotion_session.set_sleep_result(payload.session_id, sleep_profile, sleep_color)
 
-    letter_text = letter_service.generate_letter(session.turns, average, dominant, care_timeline, sleep_color)
+    letter_text, letter_text_en = letter_service.generate_letter(
+        session.turns, average, dominant, care_timeline, sleep_color
+    )
     diary = save_diary(db, payload.session_id, diary_text, summary, dominant, average)
-    letter = save_letter(db, payload.session_id, diary.id, letter_text, summary, dominant, sleep_color)
+    letter = save_letter(
+        db, payload.session_id, diary.id, letter_text, summary, dominant, sleep_color, letter_text_en
+    )
     emotion_session.clear_session(payload.session_id)
 
     return DiaryGenerateResponse(
@@ -56,6 +60,7 @@ async def generate(payload: DiaryGenerateRequest, db: Session = Depends(get_db))
         letter_id=letter.id,
         diary_text=diary_text,
         letter_text=letter_text,
+        letter_text_en=letter_text_en,
         summary=summary,
         dominant_emotion=dominant,
     )
